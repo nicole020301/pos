@@ -39,6 +39,16 @@ function closeModal(id) {
 }
 
 /* ---- NAVIGATION ---- */
+const PAGE_META = {
+  dashboard: { label: 'Dashboard',              icon: 'fa-gauge-high' },
+  pos:       { label: 'Point of Sale',           icon: 'fa-cash-register' },
+  inventory: { label: 'Inventory',               icon: 'fa-boxes-stacked' },
+  reports:   { label: 'Sales Reports',           icon: 'fa-chart-line' },
+  customers: { label: 'Customers',               icon: 'fa-users' },
+  credits:   { label: 'Credit Ledger',           icon: 'fa-hand-holding-dollar' },
+  suppliers: { label: 'Suppliers & Restocking',  icon: 'fa-truck' },
+};
+
 function navigateTo(view) {
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
@@ -48,6 +58,15 @@ function navigateTo(view) {
 
   const navItem = document.querySelector(`.nav-item[data-view="${view}"]`);
   if (navItem) navItem.classList.add('active');
+
+  // Update topbar breadcrumb
+  const meta = PAGE_META[view];
+  if (meta) {
+    const titleEl = document.getElementById('topbar-page-title');
+    const iconEl  = document.getElementById('topbar-page-icon');
+    if (titleEl) titleEl.textContent = meta.label;
+    if (iconEl)  iconEl.innerHTML = `<i class="fa-solid ${meta.icon}"></i>`;
+  }
 
   // Trigger view-specific refresh
   const refreshMap = {
@@ -65,9 +84,17 @@ function navigateTo(view) {
 function initClock() {
   function tick() {
     const now = new Date();
+    // Sidebar clock
     document.getElementById('sidebar-clock').innerHTML =
       `<div>${now.toLocaleDateString('en-PH', { weekday:'short', month:'short', day:'numeric' })}</div>
        <div style="font-size:1rem;font-weight:700;color:#fff">${now.toLocaleTimeString('en-PH', { hour:'2-digit', minute:'2-digit', second:'2-digit' })}</div>`;
+    // Topbar time
+    const topbarTime = document.getElementById('topbar-time-display');
+    if (topbarTime) {
+      topbarTime.innerHTML =
+        `<span class="tb-date">${now.toLocaleDateString('en-PH', { weekday:'short', month:'short', day:'numeric', year:'numeric' })}</span>` +
+        `<span class="tb-time">${now.toLocaleTimeString('en-PH', { hour:'2-digit', minute:'2-digit' })}</span>`;
+    }
   }
   tick();
   setInterval(tick, 1000);
@@ -253,6 +280,13 @@ function initAuth() {
     screen.style.display = 'none';
     appEl.style.display  = '';
     mainEl.style.display = '';
+    // Update topbar username
+    const owner = DB.getOwner();
+    const unameEl = document.getElementById('topbar-username');
+    if (unameEl && owner && owner.username) {
+      const u = owner.username;
+      unameEl.textContent = u.charAt(0).toUpperCase() + u.slice(1);
+    }
   }
   function showLogin() {
     screen.style.display = '';

@@ -15,47 +15,73 @@
   <!-- ===== LOGIN SCREEN ===== -->
   <div id="login-screen">
 
-    <!-- Left visual panel -->
-    <div class="login-left">
-      <div class="login-left-overlay"></div>
+    <!-- Decorative rings -->
+    <div class="ll-ring ll-ring-1"></div>
+    <div class="ll-ring ll-ring-2"></div>
+    <div class="ll-ring ll-ring-3"></div>
 
-      <!-- top brand mark
-      <div class="login-left-top">
-        <div class="login-left-logo">
-          <img src="assets/logo.jpg" alt="Logo" />
-        </div>
-        <span class="login-left-brand">Bigasan ni Joshua</span>
-      </div> -->
+    <span id="brand-login-title" style="display:none"></span>
 
-      <!-- bottom text content -->
-      <div class="login-left-content">
-        <!-- <div class="login-left-badge"><i class="fa-solid fa-star"></i>&nbsp; Fresh everyday!</div> -->
-        <!-- <h1 class="login-left-title">Premium<br>Ingredients</h1>
-        <p class="login-left-sub">Farm-fresh, premium ingredients in every dish we serve</p> -->
-        <div class="login-left-dots">
-          <!-- <span class="ldot active"></span>
-          <span class="ldot"></span>
-          <span class="ldot"></span>
-          <span class="ldot"></span> -->
-        </div>
+    <!-- LEFT: Branding panel -->
+    <div class="lc-left">
+
+      <div class="lc-logo-wrap">
+        <div class="lc-logo-ring"></div>
+        <img src="assets/logo.jpg" alt="Bigasan ni Joshua" />
       </div>
+
+      <!-- <div class="lc-brand-name">Bigasan ni Joshua</div>
+      <div class="lc-brand-sub">Point of Sale System &mdash; Owner Portal</div> -->
+
+      <!-- Features -->
+      <div class="lc-features">
+        <div class="lc-feat"><i class="fa-solid fa-seedling"></i><span>Farm Fresh Rice</span></div>
+        <div class="lc-feat-sep"></div>
+        <div class="lc-feat"><i class="fa-solid fa-shield-halved"></i><span>Trusted Quality</span></div>
+        <div class="lc-feat-sep"></div>
+        <div class="lc-feat"><i class="fa-solid fa-bolt"></i><span>Fast Checkout</span></div>
+      </div>
+
+      <!-- Stats -->
+      <div class="lc-stats">
+        <div class="lc-stat"><div class="lc-stat-val">100%</div><div class="lc-stat-lbl">Natural Rice</div></div>
+        <div class="lc-stat-sep"></div>
+        <div class="lc-stat"><div class="lc-stat-val">Daily</div><div class="lc-stat-lbl">Fresh Stock</div></div>
+        <div class="lc-stat-sep"></div>
+        <div class="lc-stat"><div class="lc-stat-val">Local</div><div class="lc-stat-lbl">Sourced Grains</div></div>
+      </div>
+
+      <!-- Module pills -->
+      <div class="lc-modules">
+        <span class="lc-mod"><i class="fa-solid fa-gauge-high"></i> Dashboard</span>
+        <span class="lc-mod"><i class="fa-solid fa-cash-register"></i> POS</span>
+        <span class="lc-mod"><i class="fa-solid fa-boxes-stacked"></i> Inventory</span>
+        <span class="lc-mod"><i class="fa-solid fa-chart-line"></i> Reports</span>
+        <span class="lc-mod"><i class="fa-solid fa-users"></i> Customers</span>
+        <span class="lc-mod"><i class="fa-solid fa-truck"></i> Suppliers</span>
+      </div>
+
+      <div class="lc-footer">&copy; 2026 Bigasan ni Joshua &mdash; All rights reserved.</div>
+
     </div>
 
-    <!-- Right form panel -->
-    <div class="login-right">
-      <div class="login-right-inner">
+    <!-- Vertical separator -->
+    <div class="lc-sep"></div>
 
-        <!-- Brand header -->
-        <div class="login-header">
-          <div class="login-header-icon"><i class="fa-solid fa-bowl-rice"></i></div>
-          <div>
-            <div class="login-header-title" id="brand-login-title">Bigasan ni Joshua</div>
-            <div class="login-header-sub">Point of Sale System</div>
-          </div>
-        </div>
+    <!-- RIGHT: Form panel -->
+    <div class="lc-right">
 
+      <div class="lc-form-inner">
+
+        <div class="lc-welcome-icon"><i class="fa-solid fa-bowl-rice"></i></div>
         <h2 class="login-welcome">Welcome back!</h2>
-        <p class="login-welcome-sub">Sign in to your account to continue</p>
+        <p class="login-welcome-sub">Enter your credentials to access your store dashboard and manage all operations.</p>
+
+        <div class="lc-divider">
+          <span class="lc-div-line"></span>
+          <span class="lc-div-label"><i class="fa-solid fa-lock"></i> Secure Sign In</span>
+          <span class="lc-div-line"></span>
+        </div>
 
         <div id="login-error" class="login-error" style="display:none">
           <i class="fa-solid fa-circle-exclamation"></i>
@@ -91,10 +117,8 @@
           <i class="fa-solid fa-right-to-bracket"></i> Sign In
         </button>
 
-        <!-- <div class="login-divider"><span>Quick access</span></div> -->
-        <!-- <p class="login-hint">Default credentials &mdash; <code>owner</code> &nbsp;/&nbsp; <code>1234</code></p> -->
-
       </div>
+
     </div>
 
   </div>
@@ -106,10 +130,13 @@
       <span id="brand-sidebar-name" title="Click to edit store name">Bigasan ni Joshua</span>
     </div>
     <nav class="sidebar-nav">
+      <div class="sidebar-nav-section">Overview</div>
       <a class="nav-item active" data-view="dashboard"><i class="fa-solid fa-gauge-high"></i><span>Dashboard</span></a>
+      <div class="sidebar-nav-section">Operations</div>
       <a class="nav-item" data-view="pos"><i class="fa-solid fa-cash-register"></i><span>Point of Sale</span></a>
       <a class="nav-item" data-view="inventory"><i class="fa-solid fa-boxes-stacked"></i><span>Inventory</span></a>
       <a class="nav-item" data-view="reports"><i class="fa-solid fa-chart-line"></i><span>Reports</span></a>
+      <div class="sidebar-nav-section">People</div>
       <a class="nav-item" data-view="customers"><i class="fa-solid fa-users"></i><span>Customers</span></a>
       <a class="nav-item" data-view="credits"><i class="fa-solid fa-hand-holding-dollar"></i><span>Credits</span></a>
       <a class="nav-item" data-view="suppliers"><i class="fa-solid fa-truck"></i><span>Suppliers</span></a>
@@ -125,12 +152,57 @@
   <!-- Main -->
   <main class="main-content" style="display:none">
 
+    <!-- ===== TOPBAR ===== -->
+    <div class="topbar" id="main-topbar">
+      <div class="topbar-left">
+        <div class="topbar-breadcrumb">
+          <span class="topbar-page-icon" id="topbar-page-icon"><i class="fa-solid fa-gauge-high"></i></span>
+          <i class="fa-solid fa-chevron-right topbar-chevron"></i>
+          <span class="topbar-page-title" id="topbar-page-title">Dashboard</span>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <div class="topbar-status-pill">
+          <span class="topbar-status-dot"></span>
+          <span>System Online</span>
+        </div>
+        <div class="topbar-time-block" id="topbar-time-display"></div>
+        <div class="topbar-divider-v"></div>
+        <div class="topbar-user-chip">
+          <div class="topbar-avatar"><i class="fa-solid fa-user-tie"></i></div>
+          <div class="topbar-user-info">
+            <span class="topbar-username" id="topbar-username">Owner</span>
+            <span class="topbar-role">Administrator</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- ===== DASHBOARD ===== -->
     <section class="view active" id="view-dashboard">
       <div class="view-header">
         <h1><i class="fa-solid fa-gauge-high"></i> Dashboard</h1>
         <span id="dash-date" class="subtitle"></span>
       </div>
+
+      <!-- Welcome Banner -->
+      <div class="dash-welcome-banner">
+        <div class="dwb-content">
+          <div class="dwb-tag"><i class="fa-solid fa-bolt"></i> Live Overview</div>
+          <div class="dwb-greeting" id="dwb-greeting">Good morning!</div>
+          <div class="dwb-sub">Here's a snapshot of your store's performance today.</div>
+          <div class="dwb-badges">
+            <span class="dwb-badge"><i class="fa-solid fa-circle-check"></i> All systems operational</span>
+            <span class="dwb-badge"><i class="fa-solid fa-shield-halved"></i> Data secured</span>
+          </div>
+        </div>
+        <div class="dwb-graphic">
+          <div class="dwb-ring dwb-ring-1"></div>
+          <div class="dwb-ring dwb-ring-2"></div>
+          <div class="dwb-icon-wrap"><i class="fa-solid fa-bowl-rice"></i></div>
+        </div>
+      </div>
+
       <div class="stat-cards">
         <div class="stat-card blue">
           <div class="stat-icon"><i class="fa-solid fa-peso-sign"></i></div>
@@ -310,7 +382,7 @@
       </div>
       <div class="tbl-wrap">
         <table class="tbl">
-          <thead><tr><th>Name</th><th>Phone</th><th>Address</th><th>Purchases</th><th>Total Spent</th><th>Credit Balance</th><th></th>Last Purchase</th><th>Actions</th></tr></thead>
+          <thead><tr><th>Name</th><th>Phone</th><th>Address</th><th>Purchases</th><th>Total Spent</th><th>Credit Balance</th><th>Last Purchase</th><th>Actions</th></tr></thead>
           <tbody id="cust-table"></tbody>
         </table>
       </div>
