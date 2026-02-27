@@ -95,6 +95,30 @@ button { cursor: pointer; border: none; background: none; }
   flex-shrink: 0;
   box-shadow: 0 4px 12px rgba(0,0,0,.4);
 }
+
+/* === Inline-editable store name === */
+#brand-sidebar-name {
+  cursor: pointer;
+  border-radius: 4px;
+  padding: 2px 5px;
+  margin: -2px -5px;
+  transition: background .15s, outline .15s;
+  outline: 2px solid transparent;
+  user-select: none;
+  -webkit-user-select: none;
+}
+#brand-sidebar-name:hover {
+  background: rgba(255,255,255,.12);
+}
+#brand-sidebar-name[contenteditable="true"] {
+  outline: 2px solid #f97316;
+  background: rgba(249,115,22,.18);
+  cursor: text;
+  border-radius: 4px;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
 .sidebar-nav { flex: 1; padding: 10px 10px; }
 .nav-item {
   display: flex;

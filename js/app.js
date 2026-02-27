@@ -112,6 +112,55 @@ function initKeyboardShortcuts() {
   });
 }
 
+/* ---- APPLY SAVED SETTINGS TO DOM ---- */
+function applySettings() {
+  const s = DB.getSettings();
+  const name = s.storeName || 'Bigasan Store';
+  const sidebarEl = document.getElementById('brand-sidebar-name');
+  const loginEl   = document.getElementById('brand-login-title');
+  if (sidebarEl && sidebarEl.contentEditable !== 'true') sidebarEl.textContent = name;
+  if (loginEl)   loginEl.textContent = name;
+  document.title = name + ' – POS System';
+}
+
+/* ---- INLINE EDIT: click store name in sidebar to rename ---- */
+function initInlineEdit() {
+  const el = document.getElementById('brand-sidebar-name');
+  if (!el) return;
+
+  el.addEventListener('click', () => {
+    el.contentEditable = 'true';
+    el.focus();
+    // Move caret to end
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    range.collapse(false);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+  });
+
+  el.addEventListener('blur', () => {
+    el.contentEditable = 'false';
+    const newName = el.textContent.trim() || 'Bigasan Store';
+    el.textContent = newName;
+    const s = DB.getSettings();
+    if (newName !== s.storeName) {
+      DB.saveSettings({ ...s, storeName: newName });
+      applySettings();
+      showToast('Store name saved!', 'success');
+    }
+  });
+
+  el.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); el.blur(); }
+    if (e.key === 'Escape') {
+      el.contentEditable = 'false';
+      el.textContent = DB.getSettings().storeName || 'Bigasan Store';
+    }
+  });
+}
+
 /* ---- SETTINGS & BACKUP ---- */
 function initSettings() {
   // Open modal
@@ -137,6 +186,7 @@ function initSettings() {
       phone:       document.getElementById('set-phone').value.trim(),
       receiptNote: document.getElementById('set-receipt-note').value.trim() || 'Thank you for your purchase!',
     });
+    applySettings();
     closeModal('settings-modal');
     showToast('Settings saved!', 'success');
   });
@@ -273,6 +323,8 @@ document.addEventListener('DOMContentLoaded', () => {
   initKeyboardShortcuts();
   initSettings();
   initAuth();
+  applySettings();
+  initInlineEdit();
 
   // Navigate to dashboard
   navigateTo('dashboard');

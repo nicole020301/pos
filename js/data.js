@@ -26,7 +26,7 @@ const DB = {
 
   /* ---- SETTINGS ---- */
   getSettings() {
-    const def = { storeName: 'Bigasan Store', address: '', phone: '', receiptNote: 'Thank you for your purchase!' };
+    const def = { storeName: 'Bigasan ni Joshua', address: '', phone: '', receiptNote: 'Thank you for your purchase!' };
     try { return { ...def, ...JSON.parse(localStorage.getItem(this.KEYS.settings)) }; }
     catch { return def; }
   },
@@ -282,24 +282,22 @@ const DB = {
 
   /* ==== SEED DATA (first run) ==== */
   seed() {
+    // Save default settings on very first run (ensures storeName is written to localStorage)
+    const existingSettings = JSON.parse(localStorage.getItem(this.KEYS.settings));
+    if (!existingSettings) {
+      this.saveSettings({ storeName: 'Bigasan ni Joshua', address: '', phone: '', receiptNote: 'Thank you for your purchase!' });
+    }
+
     if (this.getProducts().length > 0) return;
     const products = [
-      { name: 'Sinandomeng',   type: 'kilo',       price: 52,   unit: 'kg',     stock: 500,  lowStock: 50,  description: 'Premium white rice' },
-      { name: 'Dinorado',      type: 'kilo',       price: 58,   unit: 'kg',     stock: 300,  lowStock: 50,  description: 'Aromatic long grain' },
-      { name: 'Jasmine Rice',  type: 'kilo',       price: 65,   unit: 'kg',     stock: 200,  lowStock: 30,  description: 'Thai jasmine rice' },
-      { name: 'Milagrosa',     type: 'kilo',       price: 55,   unit: 'kg',     stock: 400,  lowStock: 50,  description: 'Soft cooked texture' },
-      { name: 'NFA Rice',      type: 'kilo',       price: 27,   unit: 'kg',     stock: 600,  lowStock: 100, description: 'Subsidized rice' },
-      { name: 'Sinandomeng 50kg Sack', type: 'sack', price: 2500, unit: 'sack', stock: 20,   lowStock: 5,   description: '50 kg sack' },
-      { name: 'Dinorado 25kg Sack',    type: 'sack', price: 1400, unit: 'sack', stock: 15,   lowStock: 3,   description: '25 kg sack' },
-      { name: 'Jasmine 5kg Bag', type: 'prepacked', price: 330,  unit: 'bag',   stock: 50,   lowStock: 10,  description: '5 kg pre-packed bag' },
-      { name: 'Milagrosa 2kg Bag', type: 'prepacked', price: 115, unit: 'bag',  stock: 80,   lowStock: 15,  description: '2 kg pre-packed bag' },
+      { name: 'Master Chef Jasmine',   type: 'kilo',       price: 62,   unit: 'kg',     stock: 8,  lowStock: 0 },
     ];
     products.forEach(p => this.saveProduct(p));
 
     const customers = [
-      { name: 'Maria Santos',   phone: '09171234567', address: 'Brgy. Sta. Cruz', notes: 'Regular bulk buyer' },
-      { name: 'Jose Reyes',     phone: '09281234567', address: 'Brgy. San Miguel', notes: '' },
-      { name: 'Ana dela Cruz',  phone: '09391234567', address: 'Brgy. Poblacion', notes: 'Prefers Dinorado' },
+      { name: 'Rosy',   phone: '09171234567', address: 'Brgy. Sta. Cruz', notes: 'Regular bulk buyer' },
+      { name: 'She',     phone: '09281234567', address: 'Brgy. San Miguel', notes: '' },
+      { name: 'Jovy',  phone: '09391234567', address: 'Brgy. Poblacion', notes: 'Prefers Dinorado' },
     ];
     customers.forEach(c => this.saveCustomer(c));
 
