@@ -11,6 +11,8 @@ const DB = {
     suppliers: 'bigasan_suppliers',
     restocks: 'bigasan_restocks',
     settings: 'bigasan_settings',
+    owner: 'bigasan_owner',
+    session: 'bigasan_session',
   },
 
   /* ---- Generic helpers ---- */
@@ -28,6 +30,27 @@ const DB = {
     catch { return def; }
   },
   saveSettings(s) { localStorage.setItem(this.KEYS.settings, JSON.stringify(s)); },
+
+  /* ==== OWNER AUTH ==== */
+  _defaultOwner: { username: 'owner', password: '1234' },
+  getOwner() {
+    try {
+      const o = JSON.parse(localStorage.getItem(this.KEYS.owner));
+      return o && o.username ? o : { ...this._defaultOwner };
+    } catch { return { ...this._defaultOwner }; }
+  },
+  saveOwner(username, password) {
+    localStorage.setItem(this.KEYS.owner, JSON.stringify({ username: username.trim(), password }));
+  },
+  checkCredentials(username, password) {
+    const o = this.getOwner();
+    return username.trim() === o.username && password === o.password;
+  },
+  isLoggedIn() {
+    return sessionStorage.getItem(this.KEYS.session) === 'true';
+  },
+  login()  { sessionStorage.setItem(this.KEYS.session, 'true'); },
+  logout() { sessionStorage.removeItem(this.KEYS.session); },
 
   /* ==== PRODUCTS ==== */
   getProducts() { return this._get(this.KEYS.products); },
@@ -162,6 +185,44 @@ const DB = {
       }
     }
     return Object.values(map).sort((a, b) => b.revenue - a.revenue).slice(0, n);
+  },
+
+  /* ==== BACKUP / RESTORE ==== */
+  exportBackup() {
+    const backup = {
+      _version: 1,
+      _exportedAt: new Date().toISOString(),
+      products:     this._get(this.KEYS.products),
+      transactions:  this._get(this.KEYS.transactions),
+      customers:    this._get(this.KEYS.customers),
+      suppliers:    this._get(this.KEYS.suppliers),
+      restocks:     this._get(this.KEYS.restocks),
+      settings:     this.getSettings(),
+    };
+    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    const ts   = new Date().toISOString().slice(0, 10);
+    a.href     = url;
+    a.download = `bigasan-backup-${ts}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  },
+  importBackup(json) {
+    try {
+      const data = typeof json === 'string' ? JSON.parse(json) : json;
+      if (!data || !data._version) throw new Error('Invalid backup file');
+      if (Array.isArray(data.products))     this._set(this.KEYS.products,     data.products);
+      if (Array.isArray(data.transactions)) this._set(this.KEYS.transactions,  data.transactions);
+      if (Array.isArray(data.customers))    this._set(this.KEYS.customers,     data.customers);
+      if (Array.isArray(data.suppliers))    this._set(this.KEYS.suppliers,     data.suppliers);
+      if (Array.isArray(data.restocks))     this._set(this.KEYS.restocks,      data.restocks);
+      if (data.settings)                    this.saveSettings(data.settings);
+      return true;
+    } catch (e) {
+      console.error('importBackup error:', e);
+      return false;
+    }
   },
 
   /* ==== SEED DATA (first run) ==== */

@@ -4,16 +4,49 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Bigasan POS System</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="css/styles.css" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
 <body>
+
+  <!-- ===== LOGIN SCREEN ===== -->
+  <div id="login-screen">
+    <div class="login-card">
+      <div class="login-logo">
+        <img src="assets/logo.jpg" alt="Logo" />
+        <div>
+          <div class="login-brand">Bigasan ni Joshua</div>
+          <div class="login-sub">Point of Sale System</div>
+        </div>
+      </div>
+      <h2 class="login-title">Owner Sign In</h2>
+      <div id="login-error" class="login-error" style="display:none">
+        <i class="fa-solid fa-circle-exclamation"></i> Incorrect username or password.
+      </div>
+      <div class="form-group">
+        <label>Username</label>
+        <input type="text" id="login-username" placeholder="Enter username" autocomplete="username" />
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <div style="position:relative">
+          <input type="password" id="login-password" placeholder="Enter password" autocomplete="current-password" />
+          <button type="button" id="login-eye" class="pw-eye" tabindex="-1"><i class="fa-solid fa-eye"></i></button>
+        </div>
+      </div>
+      <button class="btn btn-primary" id="login-btn" style="width:100%;margin-top:8px"><i class="fa-solid fa-right-to-bracket"></i> Sign In</button>
+      <p class="login-hint">Default: <code>owner</code> / <code>1234</code></p>
+    </div>
+  </div>
+
   <!-- Sidebar -->
-  <aside class="sidebar" id="sidebar">
+  <aside class="sidebar" id="sidebar" style="display:none">
     <div class="sidebar-brand">
-      <i class="fa-solid fa-wheat-awn"></i>
-      <span>Bigasan POS</span>
+      <img src="assets/logo.jpg" alt="Bigasan POS Logo" class="brand-logo" />
+      <span>Bigasan ni Joshua</span>
     </div>
     <nav class="sidebar-nav">
       <a class="nav-item active" data-view="dashboard"><i class="fa-solid fa-gauge-high"></i><span>Dashboard</span></a>
@@ -24,10 +57,16 @@
       <a class="nav-item" data-view="suppliers"><i class="fa-solid fa-truck"></i><span>Suppliers</span></a>
     </nav>
     <div class="sidebar-clock" id="sidebar-clock"></div>
+    <button class="sidebar-settings-btn" id="open-settings-btn" title="Settings & Backup">
+      <i class="fa-solid fa-gear"></i><span>Settings &amp; Backup</span>
+    </button>
+    <button class="sidebar-settings-btn" id="logout-btn" title="Log Out" style="color:#f87171">
+      <i class="fa-solid fa-right-from-bracket"></i><span>Log Out</span>
+    </button>
   </aside>
 
   <!-- Main -->
-  <main class="main-content">
+  <main class="main-content" style="display:none">
 
     <!-- ===== DASHBOARD ===== -->
     <section class="view active" id="view-dashboard">
@@ -445,6 +484,77 @@
       <div class="modal-footer">
         <button class="btn btn-secondary" data-close="restock-modal">Cancel</button>
         <button class="btn btn-primary" id="restock-save">Save Restock</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings & Backup Modal -->
+  <div class="modal-overlay" id="settings-modal">
+    <div class="modal" style="max-width:520px">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-gear"></i> Settings &amp; Backup</h3>
+        <button class="modal-close" data-close="settings-modal">×</button>
+      </div>
+      <div class="modal-body">
+        <!-- Store Info -->
+        <h4 style="margin:0 0 10px;color:var(--primary)">Store Information</h4>
+        <div class="form-group">
+          <label>Store Name</label>
+          <input type="text" id="set-store-name" placeholder="Store Name" />
+        </div>
+        <div class="form-group">
+          <label>Address</label>
+          <input type="text" id="set-address" placeholder="Address" />
+        </div>
+        <div class="form-group">
+          <label>Phone</label>
+          <input type="text" id="set-phone" placeholder="Phone number" />
+        </div>
+        <div class="form-group">
+          <label>Receipt Note</label>
+          <input type="text" id="set-receipt-note" placeholder="e.g. Thank you for your purchase!" />
+        </div>
+
+        <!-- Backup & Restore -->
+        <hr style="margin:18px 0;border-color:var(--border)" />
+        <h4 style="margin:0 0 6px;color:var(--primary)">Backup &amp; Restore Data</h4>
+        <p style="margin:0 0 12px;font-size:.85rem;color:var(--text-secondary)">Export saves <strong>all</strong> data (products, sales history, customers, suppliers) to a JSON file you can keep. Import that file on any device or after any redeployment to restore everything.</p>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+          <button class="btn btn-secondary" id="backup-export-btn"><i class="fa-solid fa-download"></i> Export Backup (.json)</button>
+          <label class="btn btn-secondary" style="cursor:pointer" title="Select a backup JSON file">
+            <i class="fa-solid fa-upload"></i> Import Backup
+            <input type="file" id="backup-import-input" accept=".json" style="display:none" />
+          </label>
+        </div>
+
+        <!-- Change Password -->
+        <hr style="margin:18px 0;border-color:var(--border)" />
+        <h4 style="margin:0 0 10px;color:var(--primary)">Change Owner Credentials</h4>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Username</label>
+            <input type="text" id="set-owner-username" placeholder="Username" autocomplete="off" />
+          </div>
+          <div class="form-group">
+            <label>New Password</label>
+            <input type="password" id="set-owner-password" placeholder="New password" autocomplete="new-password" />
+          </div>
+        </div>
+        <div class="form-group" style="max-width:250px">
+          <label>Confirm Password</label>
+          <input type="password" id="set-owner-confirm" placeholder="Confirm new password" autocomplete="new-password" />
+        </div>
+        <button class="btn btn-secondary" id="change-pw-btn" style="margin-top:4px"><i class="fa-solid fa-key"></i> Update Credentials</button>
+
+        <!-- Danger Zone -->
+        <hr style="margin:18px 0;border-color:#fca5a5" />
+        <h4 style="margin:0 0 6px;color:#dc2626">Danger Zone</h4>
+        <p style="margin:0 0 10px;font-size:.85rem;color:var(--text-secondary)">Permanently deletes <strong>all</strong> sales history and resets the app. Export a backup first!</p>
+        <button class="btn btn-danger" id="clear-all-data-btn"><i class="fa-solid fa-trash"></i> Clear All Data</button>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-close="settings-modal">Cancel</button>
+        <button class="btn btn-primary" id="settings-save-btn">Save Settings</button>
       </div>
     </div>
   </div>

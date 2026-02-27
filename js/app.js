@@ -111,6 +111,142 @@ function initKeyboardShortcuts() {
   });
 }
 
+/* ---- SETTINGS & BACKUP ---- */
+function initSettings() {
+  // Open modal
+  document.getElementById('open-settings-btn').addEventListener('click', () => {
+    const s = DB.getSettings();
+    document.getElementById('set-store-name').value   = s.storeName    || '';
+    document.getElementById('set-address').value      = s.address       || '';
+    document.getElementById('set-phone').value        = s.phone         || '';
+    document.getElementById('set-receipt-note').value = s.receiptNote   || '';
+    // Pre-fill current owner username
+    const o = DB.getOwner();
+    document.getElementById('set-owner-username').value = o.username || '';
+    document.getElementById('set-owner-password').value = '';
+    document.getElementById('set-owner-confirm').value  = '';
+    openModal('settings-modal');
+  });
+
+  // Save store settings
+  document.getElementById('settings-save-btn').addEventListener('click', () => {
+    DB.saveSettings({
+      storeName:   document.getElementById('set-store-name').value.trim()   || 'Bigasan Store',
+      address:     document.getElementById('set-address').value.trim(),
+      phone:       document.getElementById('set-phone').value.trim(),
+      receiptNote: document.getElementById('set-receipt-note').value.trim() || 'Thank you for your purchase!',
+    });
+    closeModal('settings-modal');
+    showToast('Settings saved!', 'success');
+  });
+
+  // Export backup
+  document.getElementById('backup-export-btn').addEventListener('click', () => {
+    DB.exportBackup();
+    showToast('Backup downloaded!', 'success');
+  });
+
+  // Import backup
+  document.getElementById('backup-import-input').addEventListener('change', function () {
+    const file = this.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+      const ok = DB.importBackup(e.target.result);
+      if (ok) {
+        showToast('Backup restored! Refreshing…', 'success');
+        setTimeout(() => location.reload(), 1200);
+      } else {
+        showToast('Invalid backup file.', 'error');
+      }
+    };
+    reader.readAsText(file);
+    this.value = ''; // reset so same file can be re-selected
+  });
+
+  // Change owner credentials
+  document.getElementById('change-pw-btn').addEventListener('click', () => {
+    const newUser    = document.getElementById('set-owner-username').value.trim();
+    const newPw      = document.getElementById('set-owner-password').value;
+    const confirmPw  = document.getElementById('set-owner-confirm').value;
+    if (!newUser)         { showToast('Username cannot be empty.', 'error'); return; }
+    if (newPw !== confirmPw) { showToast('Passwords do not match.', 'error'); return; }
+    if (newPw.length < 4) { showToast('Password must be at least 4 characters.', 'error'); return; }
+    DB.saveOwner(newUser, newPw);
+    document.getElementById('set-owner-password').value = '';
+    document.getElementById('set-owner-confirm').value  = '';
+    showToast('Owner credentials updated!', 'success');
+  });
+
+  // Clear all data
+  document.getElementById('clear-all-data-btn').addEventListener('click', () => {
+    if (!confirm('⚠️ This will permanently delete ALL sales history, products, customers and suppliers. Are you sure?')) return;
+    if (!confirm('Are you absolutely sure? Export a backup first!')) return;
+    Object.values(DB.KEYS).forEach(k => localStorage.removeItem(k));
+    showToast('All data cleared. Refreshing…', 'warning');
+    setTimeout(() => location.reload(), 1200);
+  });
+}
+
+/* ---- AUTH ---- */
+function initAuth() {
+  const screen  = document.getElementById('login-screen');
+  const appEl   = document.getElementById('sidebar');
+  const mainEl  = document.querySelector('.main-content');
+
+  function showApp() {
+    screen.style.display = 'none';
+    appEl.style.display  = '';
+    mainEl.style.display = '';
+  }
+  function showLogin() {
+    screen.style.display = '';
+    appEl.style.display  = 'none';
+    mainEl.style.display = 'none';
+    document.getElementById('login-username').value = '';
+    document.getElementById('login-password').value = '';
+    document.getElementById('login-error').style.display = 'none';
+  }
+
+  // Start state
+  if (DB.isLoggedIn()) { showApp(); } else { showLogin(); }
+
+  // Login attempt
+  function attemptLogin() {
+    const u = document.getElementById('login-username').value;
+    const p = document.getElementById('login-password').value;
+    if (DB.checkCredentials(u, p)) {
+      DB.login();
+      document.getElementById('login-error').style.display = 'none';
+      showApp();
+    } else {
+      document.getElementById('login-error').style.display = 'flex';
+      document.getElementById('login-password').value = '';
+      document.getElementById('login-password').focus();
+    }
+  }
+
+  document.getElementById('login-btn').addEventListener('click', attemptLogin);
+  document.getElementById('login-password').addEventListener('keydown', e => { if (e.key === 'Enter') attemptLogin(); });
+  document.getElementById('login-username').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('login-password').focus(); });
+
+  // Toggle password visibility
+  const eyeBtn = document.getElementById('login-eye');
+  const pwInp  = document.getElementById('login-password');
+  eyeBtn.addEventListener('click', () => {
+    const show = pwInp.type === 'password';
+    pwInp.type = show ? 'text' : 'password';
+    eyeBtn.innerHTML = `<i class="fa-solid fa-eye${show ? '-slash' : ''}"></i>`;
+  });
+
+  // Logout
+  document.getElementById('logout-btn').addEventListener('click', () => {
+    if (!confirm('Log out of the POS system?')) return;
+    DB.logout();
+    showLogin();
+  });
+}
+
 /* ---- INIT ---- */
 document.addEventListener('DOMContentLoaded', () => {
   // Seed sample data on first run
@@ -129,10 +265,12 @@ document.addEventListener('DOMContentLoaded', () => {
     item.addEventListener('click', () => navigateTo(item.dataset.view));
   });
 
-  // Init clock, modals, shortcuts
+  // Init clock, modals, shortcuts, settings, auth
   initClock();
   initModals();
   initKeyboardShortcuts();
+  initSettings();
+  initAuth();
 
   // Navigate to dashboard
   navigateTo('dashboard');
