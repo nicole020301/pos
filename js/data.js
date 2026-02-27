@@ -310,15 +310,16 @@ const DB = {
     products.forEach(p => this.saveProduct(p));
 
     const customers = [
-      { name: 'Rosy',   phone: '09171234567', address: 'Brgy. Sta. Cruz', notes: 'Regular bulk buyer' },
-      { name: 'She',     phone: '09281234567', address: 'Brgy. San Miguel', notes: '' },
-      { name: 'Jovy',  phone: '09391234567', address: 'Brgy. Poblacion', notes: 'Prefers Dinorado' },
+      { name: 'Rosy',   phone: '', address: 'San luis Batangas'},
+      { name: 'She',     phone: '', address: 'Sukol Batangas' },
+      { name: 'Jovy',  phone: '', address: 'Sukol Batangas'},
+
     ];
     customers.forEach(c => this.saveCustomer(c));
 
     const suppliers = [
-      { name: 'AgriRice Farmers Coop', contact: '09451234567', address: 'Nueva Ecija', notes: 'Main supplier' },
-      { name: 'Central Luzon Rice Trading', contact: '09561234567', address: 'Pampanga', notes: 'NFA rice distributor' },
+      { name: 'Escalona Delen', contact: '', address: 'Balayong Bauan Batangas'},
+      { name: 'Ka Pedro', contact: '', address: 'lemery, batangas'},
     ];
     suppliers.forEach(s => this.saveSupplier(s));
   }
