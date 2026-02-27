@@ -21,7 +21,13 @@ const DB = {
     try { return JSON.parse(localStorage.getItem(key)) || []; }
     catch { return []; }
   },
-  _set(key, data) { localStorage.setItem(key, JSON.stringify(data)); },
+  _set(key, data) {
+    localStorage.setItem(key, JSON.stringify(data));
+    // Mirror to cloud if Firebase is ready
+    if (typeof FirebaseSync !== 'undefined' && FirebaseSync.isReady()) {
+      FirebaseSync.push(key, data);
+    }
+  },
   _getId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); },
 
   /* ---- SETTINGS ---- */
@@ -30,7 +36,12 @@ const DB = {
     try { return { ...def, ...JSON.parse(localStorage.getItem(this.KEYS.settings)) }; }
     catch { return def; }
   },
-  saveSettings(s) { localStorage.setItem(this.KEYS.settings, JSON.stringify(s)); },
+  saveSettings(s) {
+    localStorage.setItem(this.KEYS.settings, JSON.stringify(s));
+    if (typeof FirebaseSync !== 'undefined' && FirebaseSync.isReady()) {
+      FirebaseSync.push(this.KEYS.settings, s);
+    }
+  },
 
   /* ==== OWNER AUTH ==== */
   _defaultOwner: { username: 'owner', password: '1234' },
@@ -273,6 +284,10 @@ const DB = {
       if (Array.isArray(data.restocks))     this._set(this.KEYS.restocks,      data.restocks);
       if (Array.isArray(data.credits))      this._set(this.KEYS.credits,       data.credits);
       if (data.settings)                    this.saveSettings(data.settings);
+      // Push entire restored dataset to cloud
+      if (typeof FirebaseSync !== 'undefined' && FirebaseSync.isReady()) {
+        FirebaseSync.pushAll();
+      }
       return true;
     } catch (e) {
       console.error('importBackup error:', e);

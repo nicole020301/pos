@@ -234,6 +234,10 @@ function initSettings() {
     if (!confirm('⚠️ This will permanently delete ALL sales history, products, customers and suppliers. Are you sure?')) return;
     if (!confirm('Are you absolutely sure? Export a backup first!')) return;
     Object.values(DB.KEYS).forEach(k => localStorage.removeItem(k));
+    // Also delete from Firestore cloud
+    if (typeof FirebaseSync !== 'undefined' && FirebaseSync.isReady()) {
+      FirebaseSync.pushAll(); // pushes empty localStorage = clears cloud
+    }
     showToast('All data cleared. Refreshing…', 'warning');
     setTimeout(() => location.reload(), 1200);
   });
@@ -299,11 +303,24 @@ function initAuth() {
 }
 
 /* ---- INIT ---- */
-document.addEventListener('DOMContentLoaded', () => {
-  // Seed sample data on first run
+document.addEventListener('DOMContentLoaded', async () => {
+
+  /* ---- 1. Firebase cloud sync (pull latest before seeding) ---- */
+  if (typeof FIREBASE_CONFIG !== 'undefined' &&
+      typeof FirebaseSync !== 'undefined' &&
+      FIREBASE_CONFIG.apiKey !== 'PASTE_YOUR_API_KEY_HERE') {
+    try {
+      await FirebaseSync.init(FIREBASE_CONFIG);
+      await FirebaseSync.pullAll(); // overwrite localStorage with cloud data
+    } catch (e) {
+      console.warn('Cloud sync unavailable, running offline:', e);
+    }
+  }
+
+  /* ---- 2. Seed sample data on first run (skipped if cloud data existed) ---- */
   DB.seed();
 
-  // Initialize modules
+  /* ---- 3. Initialize modules ---- */
   Dashboard.init();
   POS.init();
   Inventory.init();
@@ -312,12 +329,12 @@ document.addEventListener('DOMContentLoaded', () => {
   Credits.init();
   Suppliers.init();
 
-  // Setup navigation
+  /* ---- 4. Setup navigation ---- */
   document.querySelectorAll('.nav-item').forEach(item => {
     item.addEventListener('click', () => navigateTo(item.dataset.view));
   });
 
-  // Init clock, modals, shortcuts, settings, auth
+  /* ---- 5. Init clock, modals, shortcuts, settings, auth ---- */
   initClock();
   initModals();
   initKeyboardShortcuts();
@@ -326,6 +343,36 @@ document.addEventListener('DOMContentLoaded', () => {
   applySettings();
   initInlineEdit();
 
-  // Navigate to dashboard
+  /* ---- 6. Navigate to dashboard ---- */
   navigateTo('dashboard');
+
+  /* ---- 7. Set up real-time listeners (fires when another device saves) ---- */
+  if (typeof FirebaseSync !== 'undefined' && FirebaseSync.isReady()) {
+    FirebaseSync.listenAll(lsKey => {
+      /* Map localStorage key → which views to refresh */
+      const K = DB.KEYS;
+      if (lsKey === K.products) {
+        Inventory.renderTable();
+        POS.renderProducts ? POS.renderProducts() : null;
+        Dashboard.refresh();
+      } else if (lsKey === K.transactions) {
+        Dashboard.refresh();
+        Reports.loadReport ? Reports.loadReport() : null;
+        Customers.renderTable();
+      } else if (lsKey === K.customers) {
+        Customers.renderTable();
+        if (typeof POS !== 'undefined' && POS.updateCustomerSelect) POS.updateCustomerSelect();
+      } else if (lsKey === K.suppliers) {
+        Suppliers.renderSuppliers();
+      } else if (lsKey === K.restocks) {
+        Suppliers.renderRestocks();
+      } else if (lsKey === K.credits) {
+        Credits.renderTable();
+        Dashboard.refresh();
+      } else if (lsKey === K.settings) {
+        applySettings();
+      }
+    });
+    showToast('☁️ Cloud sync active', 'success');
+  }
 });
