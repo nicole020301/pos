@@ -26,7 +26,7 @@ const Customers = (() => {
 
     const tbody = document.getElementById('cust-table');
     if (customers.length === 0) {
-      tbody.innerHTML = `<tr class="no-data"><td colspan="7">No customers found</td></tr>`;
+      tbody.innerHTML = `<tr class="no-data"><td colspan="8">No customers found</td></tr>`;
       return;
     }
 
@@ -36,6 +36,13 @@ const Customers = (() => {
       const lastPurchase = txns.length
         ? new Date(Math.max(...txns.map(t => new Date(t.createdAt)))).toLocaleDateString('en-PH')
         : '—';
+      // Credit balance
+      const custCredits = DB.getCreditsByCustomer(c.id).filter(cr => cr.status !== 'paid');
+      const creditBalance = custCredits.reduce((s, cr) => s + (cr.balance || 0), 0);
+      const hasOverdue = custCredits.some(cr => cr.status === 'overdue');
+      const creditDisplay = creditBalance > 0
+        ? `<strong style="color:${hasOverdue ? 'var(--danger)' : 'var(--warning, #f59e0b)'}">${fmt(creditBalance)}</strong>${hasOverdue ? ' <span class="badge badge-red" style="font-size:.65rem">Overdue</span>' : ''}`
+        : `<span style="color:var(--text-muted)">None</span>`;
       return `
         <tr>
           <td><strong>${esc(c.name)}</strong>${c.notes ? `<br><small style="color:var(--text-muted)">${esc(c.notes)}</small>` : ''}</td>
@@ -43,6 +50,7 @@ const Customers = (() => {
           <td>${c.address ? esc(c.address) : '—'}</td>
           <td><span class="badge badge-blue">${txns.length}</span></td>
           <td><strong>${fmt(totalSpent)}</strong></td>
+          <td>${creditDisplay}</td>
           <td>${lastPurchase}</td>
           <td>
             <button class="btn btn-secondary btn-sm btn-icon" data-history="${c.id}" title="View History"><i class="fa-solid fa-clock-rotate-left"></i></button>
@@ -134,6 +142,25 @@ const Customers = (() => {
             <td><span class="badge ${payBadge[t.paymentMethod] || 'badge-gray'}">${t.paymentMethod.toUpperCase()}</span></td>
           </tr>`;
       }).join('');
+    }
+    // Credit records
+    const custCredits = DB.getCreditsByCustomer(id).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    const creditTbody = document.getElementById('cust-credit-table');
+    const creditSection = document.getElementById('cust-credit-section');
+    if (custCredits.length === 0) {
+      creditSection.style.display = 'none';
+    } else {
+      creditSection.style.display = '';
+      const statusBadges = { active: 'badge-blue', overdue: 'badge-red', paid: 'badge-green' };
+      creditTbody.innerHTML = custCredits.map(cr => `
+        <tr>
+          <td><strong>${esc(cr.receiptNo)}</strong></td>
+          <td>${new Date(cr.dueDate).toLocaleDateString('en-PH')}</td>
+          <td>${fmt(cr.totalAmount)}</td>
+          <td style="color:var(--success)">${fmt(cr.amountPaid || 0)}</td>
+          <td style="color:${cr.balance > 0 ? 'var(--danger)' : 'var(--success)'};"><strong>${fmt(cr.balance || 0)}</strong></td>
+          <td><span class="badge ${statusBadges[cr.status] || 'badge-gray'}">${cr.status.toUpperCase()}</span></td>
+        </tr>`).join('');
     }
     openModal('cust-history-modal');
   }

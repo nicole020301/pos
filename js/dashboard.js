@@ -36,14 +36,23 @@ const Dashboard = (() => {
     const monthTxns = DB.getTransactionsByDateRange(monthStart, now);
     const monthSales = monthTxns.reduce((s, t) => s + t.total, 0);
 
+    // Credit stats
+    DB.refreshCreditStatuses();
+    const totalOutstanding = DB.getTotalOutstanding();
+
     document.getElementById('dash-today').textContent = fmt(todaySales);
     document.getElementById('dash-txn').textContent = todayTxns.length;
     document.getElementById('dash-low').textContent = lowStock + outOfStock;
     document.getElementById('dash-month').textContent = fmt(monthSales);
+    document.getElementById('dash-credits').textContent = fmt(totalOutstanding);
 
     // Color low stock card
     const lowCard = document.querySelector('.stat-card.orange .stat-value');
     if (lowCard) lowCard.style.color = (lowStock + outOfStock) > 0 ? 'var(--danger)' : 'inherit';
+
+    // Color credit card red if outstanding > 0
+    const creditCard = document.querySelector('.stat-card.red .stat-value');
+    if (creditCard) creditCard.style.color = totalOutstanding > 0 ? 'var(--danger)' : 'inherit';
   }
 
   function renderChart() {
@@ -57,8 +66,8 @@ const Dashboard = (() => {
         datasets: [{
           label: 'Sales (₱)',
           data: data.map(d => d.total),
-          backgroundColor: '#2563eb88',
-          borderColor: '#2563eb',
+          backgroundColor: '#f9731688',
+          borderColor: '#f97316',
           borderWidth: 1,
           borderRadius: 5,
         }]

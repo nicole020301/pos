@@ -55,6 +55,7 @@ function navigateTo(view) {
     inventory: () => Inventory.renderTable(),
     reports: () => Reports.loadReport(),
     customers: () => Customers.renderTable(),
+    credits: () => Credits.renderTable(),
     suppliers: () => { Suppliers.renderSuppliers(); Suppliers.renderRestocks(); },
   };
   if (refreshMap[view]) refreshMap[view]();
@@ -258,6 +259,7 @@ document.addEventListener('DOMContentLoaded', () => {
   Inventory.init();
   Reports.init();
   Customers.init();
+  Credits.init();
   Suppliers.init();
 
   // Setup navigation

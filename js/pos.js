@@ -267,10 +267,15 @@ const POS = (() => {
       if (tendered < total) { showToast('Cash tendered is less than total', 'error'); return; }
     }
 
+    if (paymentMethod === 'credit') {
+      const customerId = document.getElementById('cart-customer').value;
+      if (!customerId) { showToast('Credit sales require a registered customer', 'error'); return; }
+    }
+
     const customerId = document.getElementById('cart-customer').value;
     const customer = customerId ? DB.getCustomerById(customerId) : null;
     const discount = parseFloat(document.getElementById('cart-discount').value) || 0;
-    const tendered = paymentMethod === 'cash' ? (parseFloat(document.getElementById('cash-tendered').value) || 0) : total;
+    const tendered = paymentMethod === 'cash' ? (parseFloat(document.getElementById('cash-tendered').value) || 0) : (paymentMethod === 'credit' ? 0 : total);
     const change = paymentMethod === 'cash' ? tendered - total : 0;
 
     const transaction = DB.saveTransaction({
@@ -284,6 +289,24 @@ const POS = (() => {
       customerId: customerId || null,
       customerName: customer ? customer.name : 'Walk-in Customer',
     });
+
+    // If credit: create a credit record with 14-day due date
+    if (paymentMethod === 'credit') {
+      const dueDate = new Date();
+      dueDate.setDate(dueDate.getDate() + 14);
+      DB.saveCreditRecord({
+        transactionId: transaction.id,
+        receiptNo: transaction.receiptNo,
+        customerId: customerId,
+        customerName: customer ? customer.name : 'Unknown',
+        totalAmount: total,
+        amountPaid: 0,
+        balance: total,
+        dueDate: dueDate.toISOString(),
+        status: 'active',
+        payments: [],
+      });
+    }
 
     // Deduct stock
     cart.forEach(item => DB.updateStock(item.productId, -item.qty));
@@ -339,8 +362,13 @@ const POS = (() => {
           <div class="r-row"><span>Subtotal:</span><span>${fmt(txn.subtotal)}</span></div>
           ${txn.discount > 0 ? `<div class="r-row"><span>Discount:</span><span>-${fmt(txn.discount)}</span></div>` : ''}
           <div class="r-row r-grand"><span>TOTAL:</span><span>${fmt(txn.total)}</span></div>
-          <div class="r-row"><span>Payment (${txn.paymentMethod.toUpperCase()}):</span><span>${fmt(txn.tendered)}</span></div>
-          ${txn.paymentMethod === 'cash' ? `<div class="r-row"><span>Change:</span><span>${fmt(txn.change)}</span></div>` : ''}
+          ${txn.paymentMethod === 'credit'
+            ? `<div class="r-row" style="color:var(--danger)"><span>Payment (CREDIT):</span><span>₱0.00</span></div>
+               <div class="r-row" style="color:var(--danger);font-weight:700"><span>AMOUNT DUE:</span><span>${fmt(txn.total)}</span></div>
+               <div class="r-row" style="color:var(--danger)"><span>DUE DATE:</span><span>${(() => { const d = new Date(txn.createdAt); d.setDate(d.getDate()+14); return d.toLocaleDateString('en-PH',{year:'numeric',month:'long',day:'numeric'}); })()}</span></div>`
+            : `<div class="r-row"><span>Payment (${txn.paymentMethod.toUpperCase()}):</span><span>${fmt(txn.tendered)}</span></div>
+               ${txn.paymentMethod === 'cash' ? `<div class="r-row"><span>Change:</span><span>${fmt(txn.change)}</span></div>` : ''}`
+          }
         </div>
         <hr class="r-divider" />
         <div class="r-footer">

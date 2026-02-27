@@ -14,32 +14,89 @@
 
   <!-- ===== LOGIN SCREEN ===== -->
   <div id="login-screen">
-    <div class="login-card">
-      <div class="login-logo">
-        <img src="assets/logo.jpg" alt="Logo" />
-        <div>
-          <div class="login-brand">Bigasan ni Joshua</div>
-          <div class="login-sub">Point of Sale System</div>
+
+    <!-- Left visual panel -->
+    <div class="login-left">
+      <div class="login-left-overlay"></div>
+
+      <!-- top brand mark
+      <div class="login-left-top">
+        <div class="login-left-logo">
+          <img src="assets/logo.jpg" alt="Logo" />
+        </div>
+        <span class="login-left-brand">Bigasan ni Joshua</span>
+      </div> -->
+
+      <!-- bottom text content -->
+      <div class="login-left-content">
+        <!-- <div class="login-left-badge"><i class="fa-solid fa-star"></i>&nbsp; Fresh everyday!</div> -->
+        <!-- <h1 class="login-left-title">Premium<br>Ingredients</h1>
+        <p class="login-left-sub">Farm-fresh, premium ingredients in every dish we serve</p> -->
+        <div class="login-left-dots">
+          <!-- <span class="ldot active"></span>
+          <span class="ldot"></span>
+          <span class="ldot"></span>
+          <span class="ldot"></span> -->
         </div>
       </div>
-      <h2 class="login-title">Owner Sign In</h2>
-      <div id="login-error" class="login-error" style="display:none">
-        <i class="fa-solid fa-circle-exclamation"></i> Incorrect username or password.
-      </div>
-      <div class="form-group">
-        <label>Username</label>
-        <input type="text" id="login-username" placeholder="Enter username" autocomplete="username" />
-      </div>
-      <div class="form-group">
-        <label>Password</label>
-        <div style="position:relative">
-          <input type="password" id="login-password" placeholder="Enter password" autocomplete="current-password" />
-          <button type="button" id="login-eye" class="pw-eye" tabindex="-1"><i class="fa-solid fa-eye"></i></button>
-        </div>
-      </div>
-      <button class="btn btn-primary" id="login-btn" style="width:100%;margin-top:8px"><i class="fa-solid fa-right-to-bracket"></i> Sign In</button>
-      <p class="login-hint">Default: <code>owner</code> / <code>1234</code></p>
     </div>
+
+    <!-- Right form panel -->
+    <div class="login-right">
+      <div class="login-right-inner">
+
+        <!-- Brand header -->
+        <div class="login-header">
+          <div class="login-header-icon"><i class="fa-solid fa-bowl-rice"></i></div>
+          <div>
+            <div class="login-header-title">Bigasan ni Joshua</div>
+            <div class="login-header-sub">Point of Sale System</div>
+          </div>
+        </div>
+
+        <h2 class="login-welcome">Welcome back!</h2>
+        <p class="login-welcome-sub">Sign in to your account to continue</p>
+
+        <div id="login-error" class="login-error" style="display:none">
+          <i class="fa-solid fa-circle-exclamation"></i>
+          <span>Incorrect username or password. Please try again.</span>
+        </div>
+
+        <div class="form-group login-field">
+          <label for="login-username">Username</label>
+          <div class="login-input-wrap">
+            <i class="fa-solid fa-user login-input-icon"></i>
+            <input type="text" id="login-username" placeholder="Enter your username" autocomplete="username" />
+          </div>
+        </div>
+
+        <div class="form-group login-field">
+          <label for="login-password">Password</label>
+          <div class="login-input-wrap">
+            <i class="fa-solid fa-lock login-input-icon"></i>
+            <input type="password" id="login-password" placeholder="Enter your password" autocomplete="current-password" />
+            <button type="button" id="login-eye" class="pw-eye" tabindex="-1"><i class="fa-solid fa-eye"></i></button>
+          </div>
+        </div>
+
+        <div class="login-options-row">
+          <label class="remember-label">
+            <input type="checkbox" id="login-remember" />
+            <span>Remember me</span>
+          </label>
+          <a href="#" class="forgot-link">Forgot password?</a>
+        </div>
+
+        <button class="btn-login" id="login-btn">
+          <i class="fa-solid fa-right-to-bracket"></i> Sign In
+        </button>
+
+        <div class="login-divider"><span>Quick access</span></div>
+        <p class="login-hint">Default credentials &mdash; <code>owner</code> &nbsp;/&nbsp; <code>1234</code></p>
+
+      </div>
+    </div>
+
   </div>
 
   <!-- Sidebar -->
@@ -54,6 +111,7 @@
       <a class="nav-item" data-view="inventory"><i class="fa-solid fa-boxes-stacked"></i><span>Inventory</span></a>
       <a class="nav-item" data-view="reports"><i class="fa-solid fa-chart-line"></i><span>Reports</span></a>
       <a class="nav-item" data-view="customers"><i class="fa-solid fa-users"></i><span>Customers</span></a>
+      <a class="nav-item" data-view="credits"><i class="fa-solid fa-hand-holding-dollar"></i><span>Credits</span></a>
       <a class="nav-item" data-view="suppliers"><i class="fa-solid fa-truck"></i><span>Suppliers</span></a>
     </nav>
     <div class="sidebar-clock" id="sidebar-clock"></div>
@@ -90,6 +148,10 @@
         <div class="stat-card purple">
           <div class="stat-icon"><i class="fa-solid fa-calendar-days"></i></div>
           <div class="stat-info"><div class="stat-value" id="dash-month">₱0.00</div><div class="stat-label">Monthly Sales</div></div>
+        </div>
+        <div class="stat-card red">
+          <div class="stat-icon"><i class="fa-solid fa-hand-holding-dollar"></i></div>
+          <div class="stat-info"><div class="stat-value" id="dash-credits">₱0.00</div><div class="stat-label">Outstanding Credits</div></div>
         </div>
       </div>
       <div class="two-col">
@@ -249,8 +311,62 @@
       </div>
       <div class="tbl-wrap">
         <table class="tbl">
-          <thead><tr><th>Name</th><th>Phone</th><th>Address</th><th>Purchases</th><th>Total Spent</th><th>Last Purchase</th><th>Actions</th></tr></thead>
+          <thead><tr><th>Name</th><th>Phone</th><th>Address</th><th>Purchases</th><th>Total Spent</th><th>Credit Balance</th><th></th>Last Purchase</th><th>Actions</th></tr></thead>
           <tbody id="cust-table"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ===== CREDITS ===== -->
+    <section class="view" id="view-credits">
+      <div class="view-header">
+        <h1><i class="fa-solid fa-hand-holding-dollar"></i> Credit Ledger</h1>
+        <div class="report-controls">
+          <select id="credit-status-filter">
+            <option value="all">All Credits</option>
+            <option value="active">Active</option>
+            <option value="overdue">Overdue</option>
+            <option value="paid">Paid</option>
+          </select>
+        </div>
+      </div>
+      <div class="stat-cards">
+        <div class="stat-card red">
+          <div class="stat-icon"><i class="fa-solid fa-peso-sign"></i></div>
+          <div class="stat-info"><div class="stat-value" id="cr-outstanding">₱0.00</div><div class="stat-label">Total Outstanding</div></div>
+        </div>
+        <div class="stat-card orange">
+          <div class="stat-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
+          <div class="stat-info"><div class="stat-value" id="cr-overdue">₱0.00</div><div class="stat-label">Overdue Amount</div></div>
+        </div>
+        <div class="stat-card blue">
+          <div class="stat-icon"><i class="fa-solid fa-clock"></i></div>
+          <div class="stat-info"><div class="stat-value" id="cr-due-soon">0</div><div class="stat-label">Due Within 3 Days</div></div>
+        </div>
+        <div class="stat-card green">
+          <div class="stat-icon"><i class="fa-solid fa-circle-check"></i></div>
+          <div class="stat-info"><div class="stat-value" id="cr-paid-month">₱0.00</div><div class="stat-label">Collected This Month</div></div>
+        </div>
+      </div>
+      <div class="filter-bar">
+        <input type="text" id="credit-search" placeholder="Search by customer or receipt…" class="search-inp" />
+      </div>
+      <div class="tbl-wrap">
+        <table class="tbl">
+          <thead>
+            <tr>
+              <th>Receipt #</th>
+              <th>Customer</th>
+              <th>Purchase Date</th>
+              <th>Due Date</th>
+              <th>Total Amount</th>
+              <th>Amount Paid</th>
+              <th>Balance</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="credit-table"></tbody>
         </table>
       </div>
     </section>
@@ -405,12 +521,15 @@
     </div>
   </div>
 
-  <!-- Customer Purchase History Modal -->
   <div class="modal-overlay" id="cust-history-modal">
     <div class="modal lg">
       <div class="modal-header"><h3 id="cust-history-title">Purchase History</h3><button class="modal-close" data-close="cust-history-modal">×</button></div>
       <div class="modal-body">
         <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Receipt #</th><th>Date</th><th>Items</th><th>Total</th><th>Payment</th></tr></thead><tbody id="cust-history-table"></tbody></table></div>
+        <div id="cust-credit-section" style="margin-top:18px">
+          <h4 style="margin:0 0 8px;color:var(--primary)">Credit Records</h4>
+          <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Receipt #</th><th>Due Date</th><th>Total</th><th>Paid</th><th>Balance</th><th>Status</th></tr></thead><tbody id="cust-credit-table"></tbody></table></div>
+        </div>
       </div>
     </div>
   </div>
@@ -571,6 +690,46 @@
     </div>
   </div>
 
+  <!-- Credit Payment Modal -->
+  <div class="modal-overlay" id="credit-payment-modal">
+    <div class="modal sm">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-hand-holding-dollar"></i> Record Payment</h3>
+        <button class="modal-close" data-close="credit-payment-modal">×</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="cp-credit-id" />
+        <div class="credit-summary-box" id="cp-summary"></div>
+        <div class="form-group" style="margin-top:14px">
+          <label>Payment Amount (₱) *</label>
+          <input type="number" id="cp-amount" placeholder="0.00" min="0.01" step="0.01" class="modal-input big-input" />
+        </div>
+        <div class="form-group">
+          <label>Note (optional)</label>
+          <input type="text" id="cp-note" placeholder="e.g. Partial payment" />
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-close="credit-payment-modal">Cancel</button>
+        <button class="btn btn-primary" id="cp-save"><i class="fa-solid fa-check"></i> Record Payment</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Credit Detail Modal -->
+  <div class="modal-overlay" id="credit-detail-modal">
+    <div class="modal lg">
+      <div class="modal-header">
+        <h3 id="credit-detail-title">Credit Detail</h3>
+        <button class="modal-close" data-close="credit-detail-modal">×</button>
+      </div>
+      <div class="modal-body" id="credit-detail-body"></div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-close="credit-detail-modal">Close</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast notification -->
   <div id="toast-container"></div>
 
@@ -581,6 +740,7 @@
   <script src="js/reports.js"></script>
   <script src="js/customers.js"></script>
   <script src="js/suppliers.js"></script>
+  <script src="js/credits.js"></script>
   <script src="js/dashboard.js"></script>
   <script src="js/app.js"></script>
 </body>

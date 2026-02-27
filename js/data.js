@@ -10,6 +10,7 @@ const DB = {
     customers: 'bigasan_customers',
     suppliers: 'bigasan_suppliers',
     restocks: 'bigasan_restocks',
+    credits: 'bigasan_credits',
     settings: 'bigasan_settings',
     owner: 'bigasan_owner',
     session: 'bigasan_session',
@@ -132,6 +133,58 @@ const DB = {
   },
   getCustomerById(id) { return this.getCustomers().find(c => c.id === id); },
 
+  /* ==== CREDITS (Accounts Receivable) ==== */
+  getCredits() { return this._get(this.KEYS.credits); },
+  saveCreditRecord(c) {
+    const list = this.getCredits();
+    if (c.id) {
+      const idx = list.findIndex(x => x.id === c.id);
+      if (idx !== -1) list[idx] = c; else list.push(c);
+    } else {
+      c.id = this._getId();
+      c.createdAt = new Date().toISOString();
+      c.payments = [];
+      list.push(c);
+    }
+    this._set(this.KEYS.credits, list);
+    return c;
+  },
+  getCreditById(id) { return this.getCredits().find(c => c.id === id); },
+  getCreditsByCustomer(customerId) { return this.getCredits().filter(c => c.customerId === customerId); },
+  getCreditByTransaction(txnId) { return this.getCredits().find(c => c.transactionId === txnId); },
+  addCreditPayment(creditId, amount, note) {
+    const list = this.getCredits();
+    const idx = list.findIndex(c => c.id === creditId);
+    if (idx === -1) return false;
+    const credit = list[idx];
+    const payment = { id: this._getId(), amount: parseFloat(amount), note: note || '', date: new Date().toISOString() };
+    credit.payments = credit.payments || [];
+    credit.payments.push(payment);
+    const totalPaid = credit.payments.reduce((s, p) => s + p.amount, 0);
+    credit.amountPaid = totalPaid;
+    credit.balance = Math.max(0, credit.totalAmount - totalPaid);
+    credit.status = credit.balance <= 0 ? 'paid' : (new Date() > new Date(credit.dueDate) ? 'overdue' : 'active');
+    this._set(this.KEYS.credits, list);
+    return credit;
+  },
+  getOutstandingCredits() {
+    return this.getCredits().filter(c => c.status !== 'paid');
+  },
+  getTotalOutstanding() {
+    return this.getOutstandingCredits().reduce((s, c) => s + (c.balance || 0), 0);
+  },
+  refreshCreditStatuses() {
+    /* Re-compute overdue status on load */
+    const list = this.getCredits();
+    let changed = false;
+    list.forEach(c => {
+      if (c.status === 'active' && new Date() > new Date(c.dueDate)) {
+        c.status = 'overdue'; changed = true;
+      }
+    });
+    if (changed) this._set(this.KEYS.credits, list);
+  },
+
   /* ==== SUPPLIERS ==== */
   getSuppliers() { return this._get(this.KEYS.suppliers); },
   saveSupplier(s) {
@@ -190,13 +243,14 @@ const DB = {
   /* ==== BACKUP / RESTORE ==== */
   exportBackup() {
     const backup = {
-      _version: 1,
+      _version: 2,
       _exportedAt: new Date().toISOString(),
       products:     this._get(this.KEYS.products),
       transactions:  this._get(this.KEYS.transactions),
       customers:    this._get(this.KEYS.customers),
       suppliers:    this._get(this.KEYS.suppliers),
       restocks:     this._get(this.KEYS.restocks),
+      credits:      this._get(this.KEYS.credits),
       settings:     this.getSettings(),
     };
     const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
@@ -217,6 +271,7 @@ const DB = {
       if (Array.isArray(data.customers))    this._set(this.KEYS.customers,     data.customers);
       if (Array.isArray(data.suppliers))    this._set(this.KEYS.suppliers,     data.suppliers);
       if (Array.isArray(data.restocks))     this._set(this.KEYS.restocks,      data.restocks);
+      if (Array.isArray(data.credits))      this._set(this.KEYS.credits,       data.credits);
       if (data.settings)                    this.saveSettings(data.settings);
       return true;
     } catch (e) {

@@ -96,7 +96,7 @@ const Reports = (() => {
       type: 'bar',
       data: {
         labels,
-        datasets: [{ label: 'Sales (₱)', data, backgroundColor: '#2563eb99', borderColor: '#2563eb', borderWidth: 1, borderRadius: 4 }]
+        datasets: [{ label: 'Sales (₱)', data, backgroundColor: '#f9731699', borderColor: '#f97316', borderWidth: 1, borderRadius: 4 }]
       },
       options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
         scales: { y: { ticks: { callback: v => '₱' + v.toLocaleString() } } } }
@@ -111,7 +111,7 @@ const Reports = (() => {
       data: {
         labels: topProds.map(p => p.name),
         datasets: [{ data: topProds.map(p => p.revenue),
-          backgroundColor: ['#2563eb','#16a34a','#d97706','#7c3aed','#0891b2','#be185d','#65a30d','#9333ea'] }]
+          backgroundColor: ['#f97316','#16a34a','#d97706','#0d1b3e','#0891b2','#be185d','#65a30d','#9333ea'] }]
       },
       options: { responsive: true, maintainAspectRatio: false,
         plugins: { legend: { position: 'right', labels: { font: { size: 11 } } } } }
