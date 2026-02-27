@@ -1,0 +1,196 @@
+/* ============================================================
+   data.js  –  Central data store using localStorage
+   ============================================================ */
+
+const DB = {
+  /* ---- Keys ---- */
+  KEYS: {
+    products: 'bigasan_products',
+    transactions: 'bigasan_transactions',
+    customers: 'bigasan_customers',
+    suppliers: 'bigasan_suppliers',
+    restocks: 'bigasan_restocks',
+    settings: 'bigasan_settings',
+  },
+
+  /* ---- Generic helpers ---- */
+  _get(key) {
+    try { return JSON.parse(localStorage.getItem(key)) || []; }
+    catch { return []; }
+  },
+  _set(key, data) { localStorage.setItem(key, JSON.stringify(data)); },
+  _getId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); },
+
+  /* ---- SETTINGS ---- */
+  getSettings() {
+    const def = { storeName: 'Bigasan Store', address: '', phone: '', receiptNote: 'Thank you for your purchase!' };
+    try { return { ...def, ...JSON.parse(localStorage.getItem(this.KEYS.settings)) }; }
+    catch { return def; }
+  },
+  saveSettings(s) { localStorage.setItem(this.KEYS.settings, JSON.stringify(s)); },
+
+  /* ==== PRODUCTS ==== */
+  getProducts() { return this._get(this.KEYS.products); },
+  saveProduct(p) {
+    const list = this.getProducts();
+    if (p.id) {
+      const idx = list.findIndex(x => x.id === p.id);
+      if (idx !== -1) list[idx] = p; else list.push(p);
+    } else {
+      p.id = this._getId();
+      p.createdAt = new Date().toISOString();
+      list.push(p);
+    }
+    this._set(this.KEYS.products, list);
+    return p;
+  },
+  deleteProduct(id) {
+    const list = this.getProducts().filter(p => p.id !== id);
+    this._set(this.KEYS.products, list);
+  },
+  getProductById(id) { return this.getProducts().find(p => p.id === id); },
+  updateStock(id, delta) {
+    const list = this.getProducts();
+    const idx = list.findIndex(p => p.id === id);
+    if (idx !== -1) {
+      list[idx].stock = Math.max(0, (parseFloat(list[idx].stock) || 0) + delta);
+      this._set(this.KEYS.products, list);
+    }
+  },
+
+  /* ==== TRANSACTIONS ==== */
+  getTransactions() { return this._get(this.KEYS.transactions); },
+  saveTransaction(t) {
+    const list = this.getTransactions();
+    t.id = this._getId();
+    t.receiptNo = this._generateReceiptNo();
+    t.createdAt = new Date().toISOString();
+    list.push(t);
+    this._set(this.KEYS.transactions, list);
+    return t;
+  },
+  _generateReceiptNo() {
+    const list = this.getTransactions();
+    const d = new Date();
+    const prefix = `#${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
+    const seq = list.filter(t => t.receiptNo && t.receiptNo.startsWith(prefix)).length + 1;
+    return `${prefix}-${String(seq).padStart(3,'0')}`;
+  },
+  getTransactionsByDateRange(from, to) {
+    const start = new Date(from); start.setHours(0,0,0,0);
+    const end   = new Date(to);   end.setHours(23,59,59,999);
+    return this.getTransactions().filter(t => {
+      const d = new Date(t.createdAt);
+      return d >= start && d <= end;
+    });
+  },
+  getTodayTransactions() {
+    const today = new Date().toDateString();
+    return this.getTransactions().filter(t => new Date(t.createdAt).toDateString() === today);
+  },
+
+  /* ==== CUSTOMERS ==== */
+  getCustomers() { return this._get(this.KEYS.customers); },
+  saveCustomer(c) {
+    const list = this.getCustomers();
+    if (c.id) {
+      const idx = list.findIndex(x => x.id === c.id);
+      if (idx !== -1) list[idx] = c; else list.push(c);
+    } else {
+      c.id = this._getId();
+      c.createdAt = new Date().toISOString();
+      list.push(c);
+    }
+    this._set(this.KEYS.customers, list);
+    return c;
+  },
+  deleteCustomer(id) {
+    this._set(this.KEYS.customers, this.getCustomers().filter(c => c.id !== id));
+  },
+  getCustomerById(id) { return this.getCustomers().find(c => c.id === id); },
+
+  /* ==== SUPPLIERS ==== */
+  getSuppliers() { return this._get(this.KEYS.suppliers); },
+  saveSupplier(s) {
+    const list = this.getSuppliers();
+    if (s.id) {
+      const idx = list.findIndex(x => x.id === s.id);
+      if (idx !== -1) list[idx] = s; else list.push(s);
+    } else {
+      s.id = this._getId();
+      s.createdAt = new Date().toISOString();
+      list.push(s);
+    }
+    this._set(this.KEYS.suppliers, list);
+    return s;
+  },
+  deleteSupplier(id) {
+    this._set(this.KEYS.suppliers, this.getSuppliers().filter(s => s.id !== id));
+  },
+
+  /* ==== RESTOCKS ==== */
+  getRestocks() { return this._get(this.KEYS.restocks); },
+  saveRestock(r) {
+    const list = this.getRestocks();
+    r.id = this._getId();
+    r.createdAt = new Date().toISOString();
+    list.push(r);
+    this._set(this.KEYS.restocks, list);
+    return r;
+  },
+
+  /* ==== ANALYTICS HELPERS ==== */
+  getSalesSummaryForDays(n) {
+    const result = [];
+    for (let i = n - 1; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const label = d.toLocaleDateString('en-PH', { month:'short', day:'numeric' });
+      const dateStr = d.toDateString();
+      const txns = this.getTransactions().filter(t => new Date(t.createdAt).toDateString() === dateStr);
+      result.push({ label, total: txns.reduce((s, t) => s + (t.total || 0), 0), count: txns.length });
+    }
+    return result;
+  },
+  getTopProducts(txns, n = 5) {
+    const map = {};
+    for (const t of txns) {
+      for (const item of (t.items || [])) {
+        if (!map[item.productId]) map[item.productId] = { name: item.name, qty: 0, revenue: 0 };
+        map[item.productId].qty += item.qty;
+        map[item.productId].revenue += item.subtotal;
+      }
+    }
+    return Object.values(map).sort((a, b) => b.revenue - a.revenue).slice(0, n);
+  },
+
+  /* ==== SEED DATA (first run) ==== */
+  seed() {
+    if (this.getProducts().length > 0) return;
+    const products = [
+      { name: 'Sinandomeng',   type: 'kilo',       price: 52,   unit: 'kg',     stock: 500,  lowStock: 50,  description: 'Premium white rice' },
+      { name: 'Dinorado',      type: 'kilo',       price: 58,   unit: 'kg',     stock: 300,  lowStock: 50,  description: 'Aromatic long grain' },
+      { name: 'Jasmine Rice',  type: 'kilo',       price: 65,   unit: 'kg',     stock: 200,  lowStock: 30,  description: 'Thai jasmine rice' },
+      { name: 'Milagrosa',     type: 'kilo',       price: 55,   unit: 'kg',     stock: 400,  lowStock: 50,  description: 'Soft cooked texture' },
+      { name: 'NFA Rice',      type: 'kilo',       price: 27,   unit: 'kg',     stock: 600,  lowStock: 100, description: 'Subsidized rice' },
+      { name: 'Sinandomeng 50kg Sack', type: 'sack', price: 2500, unit: 'sack', stock: 20,   lowStock: 5,   description: '50 kg sack' },
+      { name: 'Dinorado 25kg Sack',    type: 'sack', price: 1400, unit: 'sack', stock: 15,   lowStock: 3,   description: '25 kg sack' },
+      { name: 'Jasmine 5kg Bag', type: 'prepacked', price: 330,  unit: 'bag',   stock: 50,   lowStock: 10,  description: '5 kg pre-packed bag' },
+      { name: 'Milagrosa 2kg Bag', type: 'prepacked', price: 115, unit: 'bag',  stock: 80,   lowStock: 15,  description: '2 kg pre-packed bag' },
+    ];
+    products.forEach(p => this.saveProduct(p));
+
+    const customers = [
+      { name: 'Maria Santos',   phone: '09171234567', address: 'Brgy. Sta. Cruz', notes: 'Regular bulk buyer' },
+      { name: 'Jose Reyes',     phone: '09281234567', address: 'Brgy. San Miguel', notes: '' },
+      { name: 'Ana dela Cruz',  phone: '09391234567', address: 'Brgy. Poblacion', notes: 'Prefers Dinorado' },
+    ];
+    customers.forEach(c => this.saveCustomer(c));
+
+    const suppliers = [
+      { name: 'AgriRice Farmers Coop', contact: '09451234567', address: 'Nueva Ecija', notes: 'Main supplier' },
+      { name: 'Central Luzon Rice Trading', contact: '09561234567', address: 'Pampanga', notes: 'NFA rice distributor' },
+    ];
+    suppliers.forEach(s => this.saveSupplier(s));
+  }
+};

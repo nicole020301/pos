@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bigasan POS System</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+      <i class="fa-solid fa-wheat-awn"></i>
+      <span>Bigasan POS</span>
+    </div>
+    <nav class="sidebar-nav">
+      <a class="nav-item active" data-view="dashboard"><i class="fa-solid fa-gauge-high"></i><span>Dashboard</span></a>
+      <a class="nav-item" data-view="pos"><i class="fa-solid fa-cash-register"></i><span>Point of Sale</span></a>
+      <a class="nav-item" data-view="inventory"><i class="fa-solid fa-boxes-stacked"></i><span>Inventory</span></a>
+      <a class="nav-item" data-view="reports"><i class="fa-solid fa-chart-line"></i><span>Reports</span></a>
+      <a class="nav-item" data-view="customers"><i class="fa-solid fa-users"></i><span>Customers</span></a>
+      <a class="nav-item" data-view="suppliers"><i class="fa-solid fa-truck"></i><span>Suppliers</span></a>
+    </nav>
+    <div class="sidebar-clock" id="sidebar-clock"></div>
+  </aside>
+
+  <!-- Main -->
+  <main class="main-content">
+
+    <!-- ===== DASHBOARD ===== -->
+    <section class="view active" id="view-dashboard">
+      <div class="view-header">
+        <h1><i class="fa-solid fa-gauge-high"></i> Dashboard</h1>
+        <span id="dash-date" class="subtitle"></span>
+      </div>
+      <div class="stat-cards">
+        <div class="stat-card blue">
+          <div class="stat-icon"><i class="fa-solid fa-peso-sign"></i></div>
+          <div class="stat-info"><div class="stat-value" id="dash-today">₱0.00</div><div class="stat-label">Today's Sales</div></div>
+        </div>
+        <div class="stat-card green">
+          <div class="stat-icon"><i class="fa-solid fa-receipt"></i></div>
+          <div class="stat-info"><div class="stat-value" id="dash-txn">0</div><div class="stat-label">Transactions Today</div></div>
+        </div>
+        <div class="stat-card orange">
+          <div class="stat-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
+          <div class="stat-info"><div class="stat-value" id="dash-low">0</div><div class="stat-label">Low Stock Items</div></div>
+        </div>
+        <div class="stat-card purple">
+          <div class="stat-icon"><i class="fa-solid fa-calendar-days"></i></div>
+          <div class="stat-info"><div class="stat-value" id="dash-month">₱0.00</div><div class="stat-label">Monthly Sales</div></div>
+        </div>
+      </div>
+      <div class="two-col">
+        <div class="panel">
+          <div class="panel-header"><h2>Sales – Last 7 Days</h2></div>
+          <div class="chart-wrap"><canvas id="dashSalesChart"></canvas></div>
+        </div>
+        <div class="panel">
+          <div class="panel-header"><h2>Top Products</h2></div>
+          <div id="top-products"></div>
+        </div>
+      </div>
+      <div class="panel mt">
+        <div class="panel-header"><h2>Recent Transactions</h2></div>
+        <div class="tbl-wrap">
+          <table class="tbl">
+            <thead><tr><th>Receipt #</th><th>Date & Time</th><th>Customer</th><th>Items</th><th>Total</th><th>Payment</th></tr></thead>
+            <tbody id="dash-txn-table"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== POS ===== -->
+    <section class="view" id="view-pos">
+      <div class="pos-layout">
+        <!-- Left: Products -->
+        <div class="pos-left">
+          <div class="pos-topbar">
+            <div class="search-box">
+              <i class="fa-solid fa-search"></i>
+              <input type="text" id="pos-search" placeholder="Search rice products…" />
+            </div>
+            <div class="pos-filters" id="pos-filters">
+              <button class="flt active" data-filter="all">All</button>
+              <button class="flt" data-filter="kilo">Per Kilo</button>
+              <button class="flt" data-filter="sack">Sack</button>
+              <button class="flt" data-filter="prepacked">Pre-packed</button>
+            </div>
+          </div>
+          <div class="product-grid" id="product-grid"></div>
+        </div>
+        <!-- Right: Cart -->
+        <div class="pos-right">
+          <div class="cart-head">
+            <h2><i class="fa-solid fa-cart-shopping"></i> Cart</h2>
+            <select id="cart-customer" class="customer-select">
+              <option value="">Walk-in Customer</option>
+            </select>
+          </div>
+          <div class="cart-list" id="cart-list">
+            <div class="cart-empty"><i class="fa-solid fa-cart-shopping"></i><p>Cart is empty</p></div>
+          </div>
+          <div class="cart-footer">
+            <div class="cart-row"><span>Subtotal</span><span id="cart-subtotal">₱0.00</span></div>
+            <div class="cart-row">
+              <span>Discount (₱)</span>
+              <input type="number" id="cart-discount" value="0" min="0" class="discount-inp" />
+            </div>
+            <div class="cart-row total"><span>TOTAL</span><span id="cart-total">₱0.00</span></div>
+            <div class="pay-methods">
+              <label>Payment</label>
+              <div class="pay-btns">
+                <button class="pay-btn active" data-method="cash"><i class="fa-solid fa-money-bills"></i> Cash</button>
+                <button class="pay-btn" data-method="gcash"><i class="fa-solid fa-mobile-screen"></i> GCash</button>
+                <button class="pay-btn" data-method="credit"><i class="fa-solid fa-file-invoice"></i> Credit</button>
+              </div>
+            </div>
+            <div id="cash-section">
+              <label>Cash Tendered</label>
+              <input type="number" id="cash-tendered" placeholder="0.00" min="0" class="cash-inp" />
+              <div class="change-row">Change: <strong id="change-display">₱0.00</strong></div>
+            </div>
+            <div class="cart-actions">
+              <button class="btn btn-danger" id="clear-cart"><i class="fa-solid fa-trash"></i> Clear</button>
+              <button class="btn btn-primary" id="checkout-btn"><i class="fa-solid fa-check"></i> Checkout</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== INVENTORY ===== -->
+    <section class="view" id="view-inventory">
+      <div class="view-header">
+        <h1><i class="fa-solid fa-boxes-stacked"></i> Inventory</h1>
+        <button class="btn btn-primary" id="inv-add-btn"><i class="fa-solid fa-plus"></i> Add Product</button>
+      </div>
+      <div class="filter-bar">
+        <input type="text" id="inv-search" placeholder="Search products…" class="search-inp" />
+        <select id="inv-type-filter">
+          <option value="all">All Types</option>
+          <option value="kilo">Per Kilo</option>
+          <option value="sack">Sack</option>
+          <option value="prepacked">Pre-packed</option>
+        </select>
+      </div>
+      <div class="tbl-wrap">
+        <table class="tbl">
+          <thead>
+            <tr><th>Product Name</th><th>Type</th><th>Price</th><th>Unit</th><th>Stock</th><th>Low Stock Alert</th><th>Status</th><th>Actions</th></tr>
+          </thead>
+          <tbody id="inv-table"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ===== REPORTS ===== -->
+    <section class="view" id="view-reports">
+      <div class="view-header">
+        <h1><i class="fa-solid fa-chart-line"></i> Sales Reports</h1>
+        <div class="report-controls">
+          <select id="report-period">
+            <option value="today">Today</option>
+            <option value="week" selected>This Week</option>
+            <option value="month">This Month</option>
+            <option value="custom">Custom Range</option>
+          </select>
+          <div id="custom-range" style="display:none;gap:6px;align-items:center;display:none">
+            <input type="date" id="report-from" />
+            <span>to</span>
+            <input type="date" id="report-to" />
+            <button class="btn btn-secondary btn-sm" id="apply-range">Apply</button>
+          </div>
+          <button class="btn btn-secondary" id="export-csv"><i class="fa-solid fa-file-csv"></i> Export CSV</button>
+        </div>
+      </div>
+      <div class="stat-cards">
+        <div class="stat-card blue"><div class="stat-icon"><i class="fa-solid fa-peso-sign"></i></div><div class="stat-info"><div class="stat-value" id="rep-total">₱0.00</div><div class="stat-label">Total Sales</div></div></div>
+        <div class="stat-card green"><div class="stat-icon"><i class="fa-solid fa-receipt"></i></div><div class="stat-info"><div class="stat-value" id="rep-txn">0</div><div class="stat-label">Transactions</div></div></div>
+        <div class="stat-card orange"><div class="stat-icon"><i class="fa-solid fa-calculator"></i></div><div class="stat-info"><div class="stat-value" id="rep-avg">₱0.00</div><div class="stat-label">Avg. per Transaction</div></div></div>
+        <div class="stat-card purple"><div class="stat-icon"><i class="fa-solid fa-tag"></i></div><div class="stat-info"><div class="stat-value" id="rep-disc">₱0.00</div><div class="stat-label">Total Discounts</div></div></div>
+      </div>
+      <div class="two-col">
+        <div class="panel"><div class="panel-header"><h2>Sales Trend</h2></div><div class="chart-wrap"><canvas id="repTrendChart"></canvas></div></div>
+        <div class="panel"><div class="panel-header"><h2>Sales by Product</h2></div><div class="chart-wrap"><canvas id="repProdChart"></canvas></div></div>
+      </div>
+      <div class="panel mt">
+        <div class="panel-header"><h2>Transactions</h2></div>
+        <div class="tbl-wrap">
+          <table class="tbl">
+            <thead><tr><th>Receipt #</th><th>Date & Time</th><th>Customer</th><th>Items</th><th>Discount</th><th>Total</th><th>Payment</th><th>Actions</th></tr></thead>
+            <tbody id="rep-txn-table"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== CUSTOMERS ===== -->
+    <section class="view" id="view-customers">
+      <div class="view-header">
+        <h1><i class="fa-solid fa-users"></i> Customers</h1>
+        <button class="btn btn-primary" id="cust-add-btn"><i class="fa-solid fa-plus"></i> Add Customer</button>
+      </div>
+      <div class="filter-bar">
+        <input type="text" id="cust-search" placeholder="Search customers…" class="search-inp" />
+      </div>
+      <div class="tbl-wrap">
+        <table class="tbl">
+          <thead><tr><th>Name</th><th>Phone</th><th>Address</th><th>Purchases</th><th>Total Spent</th><th>Last Purchase</th><th>Actions</th></tr></thead>
+          <tbody id="cust-table"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ===== SUPPLIERS ===== -->
+    <section class="view" id="view-suppliers">
+      <div class="view-header">
+        <h1><i class="fa-solid fa-truck"></i> Suppliers & Restocking</h1>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-secondary" id="restock-add-btn"><i class="fa-solid fa-plus"></i> Add Restock</button>
+          <button class="btn btn-primary" id="sup-add-btn"><i class="fa-solid fa-plus"></i> Add Supplier</button>
+        </div>
+      </div>
+      <div class="two-col">
+        <div class="panel">
+          <div class="panel-header"><h2>Suppliers</h2></div>
+          <div class="tbl-wrap">
+            <table class="tbl">
+              <thead><tr><th>Name</th><th>Contact</th><th>Address</th><th>Actions</th></tr></thead>
+              <tbody id="sup-table"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-header"><h2>Restock History</h2></div>
+          <div class="tbl-wrap">
+            <table class="tbl">
+              <thead><tr><th>Date</th><th>Product</th><th>Supplier</th><th>Qty Added</th><th>Cost</th></tr></thead>
+              <tbody id="restock-table"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ============ MODALS ============ -->
+
+  <!-- Kilo/Qty Entry Modal -->
+  <div class="modal-overlay" id="qty-modal">
+    <div class="modal sm">
+      <div class="modal-header"><h3 id="qty-modal-title">Enter Quantity</h3><button class="modal-close" data-close="qty-modal">×</button></div>
+      <div class="modal-body">
+        <p id="qty-product-name" class="modal-product-name"></p>
+        <label id="qty-label">Weight (kg)</label>
+        <input type="number" id="qty-input" placeholder="0.00" min="0.01" step="0.01" class="modal-input big-input" />
+        <p class="price-preview">Price: <strong id="qty-price-preview">₱0.00</strong></p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-close="qty-modal">Cancel</button>
+        <button class="btn btn-primary" id="qty-confirm">Add to Cart</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Receipt Modal -->
+  <div class="modal-overlay" id="receipt-modal">
+    <div class="modal">
+      <div class="modal-header"><h3>Receipt</h3><button class="modal-close" data-close="receipt-modal">×</button></div>
+      <div class="modal-body">
+        <div id="receipt-content"></div>
+      </div>
+      <div class="modal-footer no-print">
+        <button class="btn btn-secondary" data-close="receipt-modal">Close</button>
+        <button class="btn btn-primary" id="print-receipt"><i class="fa-solid fa-print"></i> Print</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Product Modal (Add/Edit) -->
+  <div class="modal-overlay" id="product-modal">
+    <div class="modal">
+      <div class="modal-header"><h3 id="prod-modal-title">Add Product</h3><button class="modal-close" data-close="product-modal">×</button></div>
+      <div class="modal-body">
+        <input type="hidden" id="prod-id" />
+        <div class="form-row">
+          <div class="form-group">
+            <label>Product Name *</label>
+            <input type="text" id="prod-name" placeholder="e.g. Sinandomeng" />
+          </div>
+          <div class="form-group">
+            <label>Type *</label>
+            <select id="prod-type">
+              <option value="kilo">Per Kilo</option>
+              <option value="sack">Sack</option>
+              <option value="prepacked">Pre-packed</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Price (₱) *</label>
+            <input type="number" id="prod-price" placeholder="0.00" min="0" step="0.01" />
+          </div>
+          <div class="form-group">
+            <label>Unit Label *</label>
+            <input type="text" id="prod-unit" placeholder="e.g. kg, sack, 5kg bag" />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Current Stock *</label>
+            <input type="number" id="prod-stock" placeholder="0" min="0" step="0.01" />
+          </div>
+          <div class="form-group">
+            <label>Low Stock Alert</label>
+            <input type="number" id="prod-low" placeholder="10" min="0" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Description (optional)</label>
+          <input type="text" id="prod-desc" placeholder="Additional notes" />
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-close="product-modal">Cancel</button>
+        <button class="btn btn-primary" id="prod-save">Save Product</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Customer Modal -->
+  <div class="modal-overlay" id="customer-modal">
+    <div class="modal">
+      <div class="modal-header"><h3 id="cust-modal-title">Add Customer</h3><button class="modal-close" data-close="customer-modal">×</button></div>
+      <div class="modal-body">
+        <input type="hidden" id="cust-id" />
+        <div class="form-row">
+          <div class="form-group">
+            <label>Full Name *</label>
+            <input type="text" id="cust-name" placeholder="Juan dela Cruz" />
+          </div>
+          <div class="form-group">
+            <label>Phone</label>
+            <input type="text" id="cust-phone" placeholder="09xxxxxxxxx" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Address</label>
+          <input type="text" id="cust-address" placeholder="Barangay, City" />
+        </div>
+        <div class="form-group">
+          <label>Notes</label>
+          <input type="text" id="cust-notes" placeholder="Optional notes" />
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-close="customer-modal">Cancel</button>
+        <button class="btn btn-primary" id="cust-save">Save Customer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Customer Purchase History Modal -->
+  <div class="modal-overlay" id="cust-history-modal">
+    <div class="modal lg">
+      <div class="modal-header"><h3 id="cust-history-title">Purchase History</h3><button class="modal-close" data-close="cust-history-modal">×</button></div>
+      <div class="modal-body">
+        <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Receipt #</th><th>Date</th><th>Items</th><th>Total</th><th>Payment</th></tr></thead><tbody id="cust-history-table"></tbody></table></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Supplier Modal -->
+  <div class="modal-overlay" id="supplier-modal">
+    <div class="modal">
+      <div class="modal-header"><h3 id="sup-modal-title">Add Supplier</h3><button class="modal-close" data-close="supplier-modal">×</button></div>
+      <div class="modal-body">
+        <input type="hidden" id="sup-id" />
+        <div class="form-row">
+          <div class="form-group">
+            <label>Supplier Name *</label>
+            <input type="text" id="sup-name" placeholder="Rice Supplier Co." />
+          </div>
+          <div class="form-group">
+            <label>Contact Number</label>
+            <input type="text" id="sup-contact" placeholder="09xxxxxxxxx" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Address</label>
+          <input type="text" id="sup-address" placeholder="City, Province" />
+        </div>
+        <div class="form-group">
+          <label>Notes</label>
+          <input type="text" id="sup-notes" placeholder="Optional notes" />
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-close="supplier-modal">Cancel</button>
+        <button class="btn btn-primary" id="sup-save">Save Supplier</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Restock Modal -->
+  <div class="modal-overlay" id="restock-modal">
+    <div class="modal">
+      <div class="modal-header"><h3>Add Restock</h3><button class="modal-close" data-close="restock-modal">×</button></div>
+      <div class="modal-body">
+        <div class="form-row">
+          <div class="form-group">
+            <label>Product *</label>
+            <select id="restock-product"></select>
+          </div>
+          <div class="form-group">
+            <label>Supplier (optional)</label>
+            <select id="restock-supplier"><option value="">None</option></select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Quantity Added *</label>
+            <input type="number" id="restock-qty" placeholder="0" min="0.01" step="0.01" />
+          </div>
+          <div class="form-group">
+            <label>Total Cost (₱)</label>
+            <input type="number" id="restock-cost" placeholder="0.00" min="0" step="0.01" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Date</label>
+          <input type="date" id="restock-date" />
+        </div>
+        <div class="form-group">
+          <label>Notes</label>
+          <input type="text" id="restock-notes" placeholder="Optional notes" />
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-close="restock-modal">Cancel</button>
+        <button class="btn btn-primary" id="restock-save">Save Restock</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Transaction Detail Modal -->
+  <div class="modal-overlay" id="txn-detail-modal">
+    <div class="modal">
+      <div class="modal-header"><h3 id="txn-detail-title">Transaction Detail</h3><button class="modal-close" data-close="txn-detail-modal">×</button></div>
+      <div class="modal-body" id="txn-detail-body"></div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-close="txn-detail-modal">Close</button>
+        <button class="btn btn-primary" id="txn-reprint">Reprint Receipt</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast notification -->
+  <div id="toast-container"></div>
+
+  <!-- Scripts -->
+  <script src="js/data.js"></script>
+  <script src="js/pos.js"></script>
+  <script src="js/inventory.js"></script>
+  <script src="js/reports.js"></script>
+  <script src="js/customers.js"></script>
+  <script src="js/suppliers.js"></script>
+  <script src="js/dashboard.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
