@@ -2,6 +2,10 @@
    customers.js  –  Customer management
    ============================================================ */
 
+import { DB }                                         from './data.js';
+import { fmt, esc, showToast, openModal, closeModal } from './utils.js';
+import { POS }                                        from './pos.js';
+
 const Customers = (() => {
 
   function init() {
@@ -106,7 +110,7 @@ const Customers = (() => {
     DB.saveCustomer(customer);
     closeModal('customer-modal');
     renderTable();
-    if (typeof POS !== 'undefined') POS.updateCustomerSelect();
+    POS.updateCustomerSelect();
     showToast('Customer saved!', 'success');
   }
 
@@ -116,7 +120,7 @@ const Customers = (() => {
     if (!confirm(`Delete customer "${c.name}"?`)) return;
     DB.deleteCustomer(id);
     renderTable();
-    if (typeof POS !== 'undefined') POS.updateCustomerSelect();
+    POS.updateCustomerSelect();
     showToast('Customer deleted', 'success');
   }
 
@@ -167,3 +171,5 @@ const Customers = (() => {
 
   return { init, renderTable };
 })();
+
+export { Customers };

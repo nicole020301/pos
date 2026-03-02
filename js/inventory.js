@@ -2,6 +2,10 @@
    inventory.js  –  Inventory management
    ============================================================ */
 
+import { DB }                                         from './data.js';
+import { fmt, esc, showToast, openModal, closeModal } from './utils.js';
+import { POS }                                        from './pos.js';
+
 const Inventory = (() => {
 
   function init() {
@@ -124,7 +128,7 @@ const Inventory = (() => {
     DB.saveProduct(product);
     closeModal('product-modal');
     renderTable();
-    if (typeof POS !== 'undefined') POS.renderProducts();
+    POS.renderProducts();
     showToast('Product saved!', 'success');
   }
 
@@ -134,9 +138,11 @@ const Inventory = (() => {
     if (!confirm(`Delete "${p.name}"? This cannot be undone.`)) return;
     DB.deleteProduct(id);
     renderTable();
-    if (typeof POS !== 'undefined') POS.renderProducts();
+    POS.renderProducts();
     showToast('Product deleted', 'success');
   }
 
   return { init, renderTable };
 })();
+
+export { Inventory };

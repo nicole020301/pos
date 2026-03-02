@@ -2,6 +2,10 @@
    pos.js  –  Point of Sale functionality
    ============================================================ */
 
+import { DB }                                          from './data.js';
+import { fmt, esc, showToast, openModal, closeModal }  from './utils.js';
+import { Dashboard }                                   from './dashboard.js';
+
 const POS = (() => {
   let cart = [];
   let currentFilter = 'all';
@@ -324,8 +328,7 @@ const POS = (() => {
 
     showToast('Transaction completed!', 'success');
 
-    // Refresh dashboard if visible
-    if (typeof Dashboard !== 'undefined') Dashboard.refresh();
+    Dashboard.refresh();
   }
 
   /* ---- RECEIPT ---- */
@@ -393,3 +396,5 @@ const POS = (() => {
   /* ---- PUBLIC ---- */
   return { init, renderProducts, updateCustomerSelect, showReceipt };
 })();
+
+export { POS };

@@ -1,161 +1,182 @@
-/* ============================================================
-   firebase-sync.js  –  Two-way Firestore ↔ localStorage sync
-   Every write goes to cloud. On load, cloud overwrites local.
-   Real-time listeners keep all open tabs/devices in sync.
+﻿/* ============================================================
+   firebase-sync.js    Firestore <=> Zustand store sync
+   Uses Firebase Modular SDK (v9+).
    ============================================================ */
 
-const FirebaseSync = (() => {
-  let db          = null;
-  let _ready      = false;
-  let _unsubbers  = [];
+import { initializeApp }             from 'firebase/app';
+import {
+  getFirestore,
+  doc,
+  setDoc,
+  getDoc,
+  onSnapshot,
+  serverTimestamp,
+  enableIndexedDbPersistence,
+}                                    from 'firebase/firestore';
+import { store, DB_KEYS }            from './store.js';
 
-  /* Keys that should NOT be synced to cloud (device-local only) */
-  const SKIP_KEYS = new Set(['bigasan_owner', 'bigasan_session']);
+const COLLECTION = 'pos';
 
-  /* ----------------------------------------------------------
-     init()  –  Call once with your FIREBASE_CONFIG object.
-     Returns a Promise that resolves when Firestore is ready.
-  ---------------------------------------------------------- */
-  function init(config) {
-    return new Promise((resolve, reject) => {
-      _updateIndicator('syncing');
-      try {
-        if (!firebase.apps.length) {
-          firebase.initializeApp(config);
-        }
-        db = firebase.firestore();
-        // Enable offline persistence so the POS keeps working
-        // even when internet drops momentarily
-        db.enablePersistence({ synchronizeTabs: true })
-          .catch(() => {}); // Silently ignore if already enabled or unsupported
-        _ready = true;
-        _updateIndicator('online');
-        resolve();
-      } catch (e) {
-        console.error('[FirebaseSync] init failed:', e);
-        _updateIndicator('offline');
-        reject(e);
-      }
+/* ---- Map each collection key -> store setter / getter ---- */
+const SETTERS = {
+  [DB_KEYS.products]:     d => store.getState().setProducts(d),
+  [DB_KEYS.transactions]: d => store.getState().setTransactions(d),
+  [DB_KEYS.customers]:    d => store.getState().setCustomers(d),
+  [DB_KEYS.suppliers]:    d => store.getState().setSuppliers(d),
+  [DB_KEYS.restocks]:     d => store.getState().setRestocks(d),
+  [DB_KEYS.credits]:      d => store.getState().setCredits(d),
+  [DB_KEYS.settings]:     d => store.getState().setSettings(d),
+};
+
+const GETTERS = {
+  [DB_KEYS.products]:     () => store.getState().products,
+  [DB_KEYS.transactions]: () => store.getState().transactions,
+  [DB_KEYS.customers]:    () => store.getState().customers,
+  [DB_KEYS.suppliers]:    () => store.getState().suppliers,
+  [DB_KEYS.restocks]:     () => store.getState().restocks,
+  [DB_KEYS.credits]:      () => store.getState().credits,
+  [DB_KEYS.settings]:     () => store.getState().settings,
+};
+
+/* Keys to NEVER sync to Firestore */
+const SKIP_KEYS     = new Set([DB_KEYS.owner, DB_KEYS.session]);
+const SYNCABLE_KEYS = Object.keys(SETTERS);
+
+let db         = null;
+let _ready     = false;
+let _unsubbers = [];
+
+export let firebaseApp = null;  /* shared app instance for auth.js */
+
+/* ----------------------------------------------------------
+   initFirebase(config)
+   Call once on startup. Returns a Promise.
+---------------------------------------------------------- */
+export async function initFirebase(config) {
+  _updateIndicator('syncing');
+  store.getState().setSyncStatus('syncing');
+  try {
+    firebaseApp = initializeApp(config);
+    db = getFirestore(firebaseApp);
+    await enableIndexedDbPersistence(db).catch(() => {});
+    _ready = true;
+    _updateIndicator('online');
+    store.getState().setSyncStatus('online');
+  } catch (e) {
+    console.error('[FirebaseSync] init failed:', e);
+    _updateIndicator('offline');
+    store.getState().setSyncStatus('offline');
+    throw e;
+  }
+}
+
+/* ----------------------------------------------------------
+   push(lsKey, data)
+   Write one collection to Firestore.
+---------------------------------------------------------- */
+export async function push(lsKey, data) {
+  if (!_ready || SKIP_KEYS.has(lsKey)) return;
+  try {
+    await setDoc(doc(db, COLLECTION, lsKey), {
+      data:      JSON.stringify(data),
+      updatedAt: serverTimestamp(),
     });
+  } catch (e) {
+    console.warn('[FirebaseSync] push failed for', lsKey, e);
   }
+}
 
-  /* ----------------------------------------------------------
-     push(lsKey, data)  –  Write one collection to Firestore.
-     lsKey is the localStorage key string (e.g. 'bigasan_products').
-  ---------------------------------------------------------- */
-  async function push(lsKey, data) {
-    if (!_ready || SKIP_KEYS.has(lsKey)) return;
-    try {
-      await db.collection('pos').doc(lsKey).set({
-        data: JSON.stringify(data),
-        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-      });
-    } catch (e) {
-      console.warn('[FirebaseSync] push failed for', lsKey, e);
-    }
-  }
-
-  /* ----------------------------------------------------------
-     pullAll()  –  Download every collection from Firestore
-     into localStorage. Called once on startup so the browser
-     gets the latest cloud data before rendering.
-  ---------------------------------------------------------- */
-  async function pullAll() {
-    if (!_ready) return;
-    const keys = Object.values(DB.KEYS).filter(k => !SKIP_KEYS.has(k));
-    await Promise.all(keys.map(async lsKey => {
+/* ----------------------------------------------------------
+   pullAll()
+   Download every collection from Firestore into the store.
+   Called once on startup before seeding / rendering.
+---------------------------------------------------------- */
+export async function pullAll() {
+  if (!_ready) return;
+  await Promise.all(
+    SYNCABLE_KEYS.map(async lsKey => {
       try {
-        const doc = await db.collection('pos').doc(lsKey).get();
-        if (doc.exists && doc.data() && doc.data().data != null) {
-          localStorage.setItem(lsKey, doc.data().data);
+        const snap = await getDoc(doc(db, COLLECTION, lsKey));
+        if (snap.exists() && snap.data()?.data != null) {
+          SETTERS[lsKey](JSON.parse(snap.data().data));
         }
       } catch (e) {
         console.warn('[FirebaseSync] pull failed for', lsKey, e);
       }
-    }));
-  }
+    })
+  );
+}
 
-  /* ----------------------------------------------------------
-     listenAll(onRemoteChange)  –  Set up real-time Firestore
-     listeners. When another device saves, this fires and
-     updates localStorage + re-renders the affected view.
-  ---------------------------------------------------------- */
-  function listenAll(onRemoteChange) {
-    if (!_ready) return;
-    stopListeners();
+/* ----------------------------------------------------------
+   listenAll(onRemoteChange?)
+   Real-time Firestore listeners. Remote changes update the
+   store, which triggers Zustand subscriptions in app.js.
+---------------------------------------------------------- */
+export function listenAll(onRemoteChange) {
+  if (!_ready) return;
+  stopListeners();
 
-    const keys = Object.values(DB.KEYS).filter(k => !SKIP_KEYS.has(k));
-    keys.forEach(lsKey => {
-      const unsub = db.collection('pos').doc(lsKey).onSnapshot(
-        doc => {
-          if (!doc.exists || !doc.data() || doc.data().data == null) return;
-          const remote = doc.data().data;
-          const local  = localStorage.getItem(lsKey);
-          if (remote !== local) {
-            localStorage.setItem(lsKey, remote);
-            if (typeof onRemoteChange === 'function') onRemoteChange(lsKey);
-          }
-        },
-        err => {
-          console.warn('[FirebaseSync] listener error for', lsKey, err);
-          _updateIndicator('offline');
+  SYNCABLE_KEYS.forEach(lsKey => {
+    const unsub = onSnapshot(
+      doc(db, COLLECTION, lsKey),
+      snap => {
+        if (!snap.exists() || snap.data()?.data == null) return;
+        const remoteStr  = snap.data().data;
+        const currentStr = JSON.stringify(GETTERS[lsKey]());
+        if (remoteStr !== currentStr) {
+          SETTERS[lsKey](JSON.parse(remoteStr));
+          if (typeof onRemoteChange === 'function') onRemoteChange(lsKey);
         }
-      );
-      _unsubbers.push(unsub);
-    });
-  }
+      },
+      err => {
+        console.warn('[FirebaseSync] listener error for', lsKey, err);
+        _updateIndicator('offline');
+        store.getState().setSyncStatus('offline');
+      }
+    );
+    _unsubbers.push(unsub);
+  });
+}
 
-  /* ----------------------------------------------------------
-     pushAll()  –  Upload the entire localStorage to Firestore.
-     Useful after an Import Backup to sync it to cloud.
-  ---------------------------------------------------------- */
-  async function pushAll() {
-    if (!_ready) return;
-    const keys = Object.values(DB.KEYS).filter(k => !SKIP_KEYS.has(k));
-    await Promise.all(keys.map(async lsKey => {
-      const raw = localStorage.getItem(lsKey);
-      if (raw == null) return;
+/* ----------------------------------------------------------
+   pushAll()
+   Upload entire store to Firestore (used after backup import).
+---------------------------------------------------------- */
+export async function pushAll() {
+  if (!_ready) return;
+  await Promise.all(
+    SYNCABLE_KEYS.map(async lsKey => {
+      const data = GETTERS[lsKey]();
+      if (data == null) return;
       try {
-        await db.collection('pos').doc(lsKey).set({
-          data: raw,
-          updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        await setDoc(doc(db, COLLECTION, lsKey), {
+          data:      JSON.stringify(data),
+          updatedAt: serverTimestamp(),
         });
       } catch (e) {
         console.warn('[FirebaseSync] pushAll failed for', lsKey, e);
       }
-    }));
-  }
+    })
+  );
+}
 
-  /* ----------------------------------------------------------
-     stopListeners()  –  Detach all Firestore listeners.
-  ---------------------------------------------------------- */
-  function stopListeners() {
-    _unsubbers.forEach(u => u());
-    _unsubbers = [];
-  }
+export function stopListeners() {
+  _unsubbers.forEach(u => u());
+  _unsubbers = [];
+}
 
-  /* ----------------------------------------------------------
-     isReady()  –  Returns true if Firebase is connected.
-  ---------------------------------------------------------- */
-  function isReady() {
-    return _ready;
-  }
+export function isReady() { return _ready; }
 
-  /* ----------------------------------------------------------
-     _updateIndicator()  –  Show cloud status badge in sidebar.
-  ---------------------------------------------------------- */
-  function _updateIndicator(status) {
-    let el = document.getElementById('cloud-sync-indicator');
-    if (!el) return;
-    const configs = {
-      online:  { color: '#22c55e', icon: 'fa-cloud',    text: 'Cloud Sync On'  },
-      offline: { color: '#f87171', icon: 'fa-cloud-slash', text: 'Offline'      },
-      syncing: { color: '#f59e0b', icon: 'fa-rotate',   text: 'Syncing…'       },
-    };
-    const c = configs[status] || configs.offline;
-    el.innerHTML = `<i class="fa-solid ${c.icon}" style="color:${c.color};font-size:.75rem"></i> <span style="color:${c.color}">${c.text}</span>`;
-  }
-
-  /* Public API */
-  return { init, push, pushAll, pullAll, listenAll, stopListeners, isReady };
-})();
+function _updateIndicator(status) {
+  const el = document.getElementById('cloud-sync-indicator');
+  if (!el) return;
+  const cfg = {
+    online:  { color: '#22c55e', icon: 'fa-cloud',      text: 'Cloud Sync On' },
+    offline: { color: '#f87171', icon: 'fa-cloud-slash', text: 'Offline'       },
+    syncing: { color: '#f59e0b', icon: 'fa-rotate',      text: 'Syncing...'    },
+  };
+  const c = cfg[status] || cfg.offline;
+  el.innerHTML =
+    `<i class="fa-solid ${c.icon}" style="color:${c.color};font-size:.75rem"></i>` +
+    ` <span style="color:${c.color}">${c.text}</span>`;
+}

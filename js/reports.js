@@ -2,6 +2,10 @@
    reports.js  –  Sales Reports & Analytics
    ============================================================ */
 
+import { DB }                                    from './data.js';
+import { fmt, esc, showToast, openModal }        from './utils.js';
+import { POS }                                   from './pos.js';
+
 const Reports = (() => {
   let trendChart = null;
   let prodChart = null;
@@ -220,3 +224,5 @@ const Reports = (() => {
 
   return { init, loadReport };
 })();
+
+export { Reports };

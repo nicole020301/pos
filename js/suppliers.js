@@ -2,6 +2,11 @@
    suppliers.js  –  Suppliers & Restocking
    ============================================================ */
 
+import { DB }                                         from './data.js';
+import { fmt, esc, showToast, openModal, closeModal } from './utils.js';
+import { Inventory }                                  from './inventory.js';
+import { POS }                                        from './pos.js';
+
 const Suppliers = (() => {
 
   function init() {
@@ -153,10 +158,12 @@ const Suppliers = (() => {
 
     closeModal('restock-modal');
     renderRestocks();
-    if (typeof Inventory !== 'undefined') Inventory.renderTable();
-    if (typeof POS !== 'undefined') POS.renderProducts();
+    Inventory.renderTable();
+    POS.renderProducts();
     showToast(`Stock updated! +${qty} added`, 'success');
   }
 
   return { init, renderSuppliers, renderRestocks };
 })();
+
+export { Suppliers };

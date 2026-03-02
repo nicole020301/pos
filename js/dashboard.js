@@ -2,6 +2,9 @@
    dashboard.js  –  Dashboard
    ============================================================ */
 
+import { DB }                  from './data.js';
+import { fmt, esc }            from './utils.js';
+
 const Dashboard = (() => {
   let salesChart = null;
 
@@ -147,3 +150,5 @@ const Dashboard = (() => {
 
   return { init, refresh };
 })();
+
+export { Dashboard };

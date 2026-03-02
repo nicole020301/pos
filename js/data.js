@@ -1,119 +1,91 @@
-/* ============================================================
-   data.js  –  Central data store using localStorage
+﻿/* ============================================================
+   data.js  --  Central data API backed by Zustand store.
+   Same public DB.* interface as before, but now reads from
+   store.getState() and writes via store actions + Firestore.
+   localStorage is only used for owner credentials (no cloud sync).
    ============================================================ */
 
-const DB = {
-  /* ---- Keys ---- */
-  KEYS: {
-    products: 'bigasan_products',
-    transactions: 'bigasan_transactions',
-    customers: 'bigasan_customers',
-    suppliers: 'bigasan_suppliers',
-    restocks: 'bigasan_restocks',
-    credits: 'bigasan_credits',
-    settings: 'bigasan_settings',
-    owner: 'bigasan_owner',
-    session: 'bigasan_session',
-  },
+import { store, DB_KEYS }                          from './store.js';
+import { push as fsPush, pushAll as fsPushAll, isReady as fsIsReady } from './firebase-sync.js';
 
-  /* ---- Generic helpers ---- */
-  _get(key) {
-    try { return JSON.parse(localStorage.getItem(key)) || []; }
-    catch { return []; }
-  },
-  _set(key, data) {
-    localStorage.setItem(key, JSON.stringify(data));
-    // Mirror to cloud if Firebase is ready
-    if (typeof FirebaseSync !== 'undefined' && FirebaseSync.isReady()) {
-      FirebaseSync.push(key, data);
-    }
-  },
-  _getId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); },
+/* Push one collection slice to Firestore after a local write */
+function _syncToCloud(key) {
+  if (!fsIsReady()) return;
+  const state = store.getState();
+  const sliceMap = {
+    [DB_KEYS.products]:     state.products,
+    [DB_KEYS.transactions]: state.transactions,
+    [DB_KEYS.customers]:    state.customers,
+    [DB_KEYS.suppliers]:    state.suppliers,
+    [DB_KEYS.restocks]:     state.restocks,
+    [DB_KEYS.credits]:      state.credits,
+    [DB_KEYS.settings]:     state.settings,
+  };
+  if (Object.prototype.hasOwnProperty.call(sliceMap, key)) {
+    fsPush(key, sliceMap[key]);
+  }
+}
 
-  /* ---- SETTINGS ---- */
+export const DB = {
+  KEYS: DB_KEYS,
+
+  /* ==== SETTINGS ==== */
   getSettings() {
     const def = { storeName: 'Bigasan ni Joshua', address: '', phone: '', receiptNote: 'Thank you for your purchase!' };
-    try { return { ...def, ...JSON.parse(localStorage.getItem(this.KEYS.settings)) }; }
-    catch { return def; }
+    return { ...def, ...store.getState().settings };
   },
   saveSettings(s) {
-    localStorage.setItem(this.KEYS.settings, JSON.stringify(s));
-    if (typeof FirebaseSync !== 'undefined' && FirebaseSync.isReady()) {
-      FirebaseSync.push(this.KEYS.settings, s);
-    }
+    store.getState().setSettings(s);
+    _syncToCloud(DB_KEYS.settings);
   },
 
   /* ==== OWNER AUTH ==== */
   _defaultOwner: { username: 'owner', password: '1234' },
   getOwner() {
-    try {
-      const o = JSON.parse(localStorage.getItem(this.KEYS.owner));
-      return o && o.username ? o : { ...this._defaultOwner };
-    } catch { return { ...this._defaultOwner }; }
+    const o = store.getState().owner;
+    return (o && o.username) ? o : { ...this._defaultOwner };
   },
   saveOwner(username, password) {
-    localStorage.setItem(this.KEYS.owner, JSON.stringify({ username: username.trim(), password }));
+    const owner = { username: username.trim(), password };
+    store.getState().setOwner(owner);
+    /* Owner credentials stay local -- never sent to Firestore */
+    localStorage.setItem(DB_KEYS.owner, JSON.stringify(owner));
   },
   checkCredentials(username, password) {
     const o = this.getOwner();
     return username.trim() === o.username && password === o.password;
   },
-  isLoggedIn() {
-    return sessionStorage.getItem(this.KEYS.session) === 'true';
-  },
-  login()  { sessionStorage.setItem(this.KEYS.session, 'true'); },
-  logout() { sessionStorage.removeItem(this.KEYS.session); },
+  isLoggedIn() { return sessionStorage.getItem(DB_KEYS.session) === 'true'; },
+  login()      { sessionStorage.setItem(DB_KEYS.session, 'true'); },
+  logout()     { sessionStorage.removeItem(DB_KEYS.session); },
 
   /* ==== PRODUCTS ==== */
-  getProducts() { return this._get(this.KEYS.products); },
+  getProducts()         { return store.getState().products; },
+  getProductById(id)    { return store.getState().products.find(p => p.id === id); },
   saveProduct(p) {
-    const list = this.getProducts();
-    if (p.id) {
-      const idx = list.findIndex(x => x.id === p.id);
-      if (idx !== -1) list[idx] = p; else list.push(p);
-    } else {
-      p.id = this._getId();
-      p.createdAt = new Date().toISOString();
-      list.push(p);
-    }
-    this._set(this.KEYS.products, list);
-    return p;
+    const saved = store.getState().addOrUpdateProduct(p);
+    _syncToCloud(DB_KEYS.products);
+    return saved;
   },
   deleteProduct(id) {
-    const list = this.getProducts().filter(p => p.id !== id);
-    this._set(this.KEYS.products, list);
+    store.getState().deleteProduct(id);
+    _syncToCloud(DB_KEYS.products);
   },
-  getProductById(id) { return this.getProducts().find(p => p.id === id); },
   updateStock(id, delta) {
-    const list = this.getProducts();
-    const idx = list.findIndex(p => p.id === id);
-    if (idx !== -1) {
-      list[idx].stock = Math.max(0, (parseFloat(list[idx].stock) || 0) + delta);
-      this._set(this.KEYS.products, list);
-    }
+    store.getState().updateStock(id, delta);
+    _syncToCloud(DB_KEYS.products);
   },
 
   /* ==== TRANSACTIONS ==== */
-  getTransactions() { return this._get(this.KEYS.transactions); },
+  getTransactions() { return store.getState().transactions; },
   saveTransaction(t) {
-    const list = this.getTransactions();
-    t.id = this._getId();
-    t.receiptNo = this._generateReceiptNo();
-    t.createdAt = new Date().toISOString();
-    list.push(t);
-    this._set(this.KEYS.transactions, list);
-    return t;
-  },
-  _generateReceiptNo() {
-    const list = this.getTransactions();
-    const d = new Date();
-    const prefix = `#${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
-    const seq = list.filter(t => t.receiptNo && t.receiptNo.startsWith(prefix)).length + 1;
-    return `${prefix}-${String(seq).padStart(3,'0')}`;
+    const saved = store.getState().addTransaction(t);
+    _syncToCloud(DB_KEYS.transactions);
+    return saved;
   },
   getTransactionsByDateRange(from, to) {
-    const start = new Date(from); start.setHours(0,0,0,0);
-    const end   = new Date(to);   end.setHours(23,59,59,999);
+    const start = new Date(from); start.setHours(0, 0, 0, 0);
+    const end   = new Date(to);   end.setHours(23, 59, 59, 999);
     return this.getTransactions().filter(t => {
       const d = new Date(t.createdAt);
       return d >= start && d <= end;
@@ -125,116 +97,69 @@ const DB = {
   },
 
   /* ==== CUSTOMERS ==== */
-  getCustomers() { return this._get(this.KEYS.customers); },
+  getCustomers()       { return store.getState().customers; },
+  getCustomerById(id)  { return store.getState().customers.find(c => c.id === id); },
   saveCustomer(c) {
-    const list = this.getCustomers();
-    if (c.id) {
-      const idx = list.findIndex(x => x.id === c.id);
-      if (idx !== -1) list[idx] = c; else list.push(c);
-    } else {
-      c.id = this._getId();
-      c.createdAt = new Date().toISOString();
-      list.push(c);
-    }
-    this._set(this.KEYS.customers, list);
-    return c;
+    const saved = store.getState().addOrUpdateCustomer(c);
+    _syncToCloud(DB_KEYS.customers);
+    return saved;
   },
   deleteCustomer(id) {
-    this._set(this.KEYS.customers, this.getCustomers().filter(c => c.id !== id));
+    store.getState().deleteCustomer(id);
+    _syncToCloud(DB_KEYS.customers);
   },
-  getCustomerById(id) { return this.getCustomers().find(c => c.id === id); },
 
-  /* ==== CREDITS (Accounts Receivable) ==== */
-  getCredits() { return this._get(this.KEYS.credits); },
+  /* ==== CREDITS ==== */
+  getCredits()              { return store.getState().credits; },
+  getCreditById(id)         { return store.getState().credits.find(c => c.id === id); },
+  getCreditsByCustomer(cid) { return store.getState().credits.filter(c => c.customerId === cid); },
+  getCreditByTransaction(tid) { return store.getState().credits.find(c => c.transactionId === tid); },
   saveCreditRecord(c) {
-    const list = this.getCredits();
-    if (c.id) {
-      const idx = list.findIndex(x => x.id === c.id);
-      if (idx !== -1) list[idx] = c; else list.push(c);
-    } else {
-      c.id = this._getId();
-      c.createdAt = new Date().toISOString();
-      c.payments = [];
-      list.push(c);
-    }
-    this._set(this.KEYS.credits, list);
-    return c;
+    const saved = store.getState().addOrUpdateCredit(c);
+    _syncToCloud(DB_KEYS.credits);
+    return saved;
   },
-  getCreditById(id) { return this.getCredits().find(c => c.id === id); },
-  getCreditsByCustomer(customerId) { return this.getCredits().filter(c => c.customerId === customerId); },
-  getCreditByTransaction(txnId) { return this.getCredits().find(c => c.transactionId === txnId); },
   addCreditPayment(creditId, amount, note) {
-    const list = this.getCredits();
-    const idx = list.findIndex(c => c.id === creditId);
-    if (idx === -1) return false;
-    const credit = list[idx];
-    const payment = { id: this._getId(), amount: parseFloat(amount), note: note || '', date: new Date().toISOString() };
-    credit.payments = credit.payments || [];
-    credit.payments.push(payment);
-    const totalPaid = credit.payments.reduce((s, p) => s + p.amount, 0);
-    credit.amountPaid = totalPaid;
-    credit.balance = Math.max(0, credit.totalAmount - totalPaid);
-    credit.status = credit.balance <= 0 ? 'paid' : (new Date() > new Date(credit.dueDate) ? 'overdue' : 'active');
-    this._set(this.KEYS.credits, list);
-    return credit;
+    const updated = store.getState().addCreditPayment(creditId, amount, note);
+    _syncToCloud(DB_KEYS.credits);
+    return updated;
   },
-  getOutstandingCredits() {
-    return this.getCredits().filter(c => c.status !== 'paid');
-  },
-  getTotalOutstanding() {
-    return this.getOutstandingCredits().reduce((s, c) => s + (c.balance || 0), 0);
-  },
+  getOutstandingCredits() { return this.getCredits().filter(c => c.status !== 'paid'); },
+  getTotalOutstanding()   { return this.getOutstandingCredits().reduce((s, c) => s + (c.balance || 0), 0); },
   refreshCreditStatuses() {
-    /* Re-compute overdue status on load */
-    const list = this.getCredits();
-    let changed = false;
-    list.forEach(c => {
-      if (c.status === 'active' && new Date() > new Date(c.dueDate)) {
-        c.status = 'overdue'; changed = true;
-      }
-    });
-    if (changed) this._set(this.KEYS.credits, list);
+    const changed = store.getState().refreshCreditStatuses();
+    if (changed) _syncToCloud(DB_KEYS.credits);
   },
 
   /* ==== SUPPLIERS ==== */
-  getSuppliers() { return this._get(this.KEYS.suppliers); },
+  getSuppliers() { return store.getState().suppliers; },
   saveSupplier(s) {
-    const list = this.getSuppliers();
-    if (s.id) {
-      const idx = list.findIndex(x => x.id === s.id);
-      if (idx !== -1) list[idx] = s; else list.push(s);
-    } else {
-      s.id = this._getId();
-      s.createdAt = new Date().toISOString();
-      list.push(s);
-    }
-    this._set(this.KEYS.suppliers, list);
-    return s;
+    const saved = store.getState().addOrUpdateSupplier(s);
+    _syncToCloud(DB_KEYS.suppliers);
+    return saved;
   },
   deleteSupplier(id) {
-    this._set(this.KEYS.suppliers, this.getSuppliers().filter(s => s.id !== id));
+    store.getState().deleteSupplier(id);
+    _syncToCloud(DB_KEYS.suppliers);
   },
 
   /* ==== RESTOCKS ==== */
-  getRestocks() { return this._get(this.KEYS.restocks); },
+  getRestocks() { return store.getState().restocks; },
   saveRestock(r) {
-    const list = this.getRestocks();
-    r.id = this._getId();
-    r.createdAt = new Date().toISOString();
-    list.push(r);
-    this._set(this.KEYS.restocks, list);
-    return r;
+    const saved = store.getState().addRestock(r);
+    _syncToCloud(DB_KEYS.restocks);
+    return saved;
   },
 
-  /* ==== ANALYTICS HELPERS ==== */
+  /* ==== ANALYTICS ==== */
   getSalesSummaryForDays(n) {
     const result = [];
     for (let i = n - 1; i >= 0; i--) {
       const d = new Date();
       d.setDate(d.getDate() - i);
-      const label = d.toLocaleDateString('en-PH', { month:'short', day:'numeric' });
+      const label   = d.toLocaleDateString('en-PH', { month: 'short', day: 'numeric' });
       const dateStr = d.toDateString();
-      const txns = this.getTransactions().filter(t => new Date(t.createdAt).toDateString() === dateStr);
+      const txns    = this.getTransactions().filter(t => new Date(t.createdAt).toDateString() === dateStr);
       result.push({ label, total: txns.reduce((s, t) => s + (t.total || 0), 0), count: txns.length });
     }
     return result;
@@ -244,7 +169,7 @@ const DB = {
     for (const t of txns) {
       for (const item of (t.items || [])) {
         if (!map[item.productId]) map[item.productId] = { name: item.name, qty: 0, revenue: 0 };
-        map[item.productId].qty += item.qty;
+        map[item.productId].qty     += item.qty;
         map[item.productId].revenue += item.subtotal;
       }
     }
@@ -253,16 +178,17 @@ const DB = {
 
   /* ==== BACKUP / RESTORE ==== */
   exportBackup() {
+    const s    = store.getState();
     const backup = {
-      _version: 2,
+      _version:    2,
       _exportedAt: new Date().toISOString(),
-      products:     this._get(this.KEYS.products),
-      transactions:  this._get(this.KEYS.transactions),
-      customers:    this._get(this.KEYS.customers),
-      suppliers:    this._get(this.KEYS.suppliers),
-      restocks:     this._get(this.KEYS.restocks),
-      credits:      this._get(this.KEYS.credits),
-      settings:     this.getSettings(),
+      products:    s.products,
+      transactions: s.transactions,
+      customers:   s.customers,
+      suppliers:   s.suppliers,
+      restocks:    s.restocks,
+      credits:     s.credits,
+      settings:    s.settings,
     };
     const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
     const url  = URL.createObjectURL(blob);
@@ -277,17 +203,15 @@ const DB = {
     try {
       const data = typeof json === 'string' ? JSON.parse(json) : json;
       if (!data || !data._version) throw new Error('Invalid backup file');
-      if (Array.isArray(data.products))     this._set(this.KEYS.products,     data.products);
-      if (Array.isArray(data.transactions)) this._set(this.KEYS.transactions,  data.transactions);
-      if (Array.isArray(data.customers))    this._set(this.KEYS.customers,     data.customers);
-      if (Array.isArray(data.suppliers))    this._set(this.KEYS.suppliers,     data.suppliers);
-      if (Array.isArray(data.restocks))     this._set(this.KEYS.restocks,      data.restocks);
-      if (Array.isArray(data.credits))      this._set(this.KEYS.credits,       data.credits);
-      if (data.settings)                    this.saveSettings(data.settings);
-      // Push entire restored dataset to cloud
-      if (typeof FirebaseSync !== 'undefined' && FirebaseSync.isReady()) {
-        FirebaseSync.pushAll();
-      }
+      const s = store.getState();
+      if (Array.isArray(data.products))     { s.setProducts(data.products);         fsPush(DB_KEYS.products, data.products); }
+      if (Array.isArray(data.transactions)) { s.setTransactions(data.transactions); fsPush(DB_KEYS.transactions, data.transactions); }
+      if (Array.isArray(data.customers))    { s.setCustomers(data.customers);        fsPush(DB_KEYS.customers, data.customers); }
+      if (Array.isArray(data.suppliers))    { s.setSuppliers(data.suppliers);        fsPush(DB_KEYS.suppliers, data.suppliers); }
+      if (Array.isArray(data.restocks))     { s.setRestocks(data.restocks);          fsPush(DB_KEYS.restocks, data.restocks); }
+      if (Array.isArray(data.credits))      { s.setCredits(data.credits);            fsPush(DB_KEYS.credits, data.credits); }
+      if (data.settings)                    { s.setSettings(data.settings);          fsPush(DB_KEYS.settings, data.settings); }
+      if (fsIsReady()) fsPushAll();
       return true;
     } catch (e) {
       console.error('importBackup error:', e);
@@ -295,32 +219,26 @@ const DB = {
     }
   },
 
-  /* ==== SEED DATA (first run) ==== */
+  /* ==== SEED (first run) ==== */
   seed() {
-    // Save default settings on very first run (ensures storeName is written to localStorage)
-    const existingSettings = JSON.parse(localStorage.getItem(this.KEYS.settings));
-    if (!existingSettings) {
-      this.saveSettings({ storeName: 'Bigasan ni Joshua', address: '', phone: '', receiptNote: 'Thank you for your purchase!' });
+    const s = store.getState();
+    if (!s.settings || !s.settings.storeName) {
+      s.setSettings({ storeName: 'Bigasan ni Joshua', address: '', phone: '', receiptNote: 'Thank you for your purchase!' });
     }
+    if (s.products.length > 0) return; /* already seeded */
 
-    if (this.getProducts().length > 0) return;
-    const products = [
-      { name: 'Master Chef Jasmine',   type: 'kilo',       price: 62,   unit: 'kg',     stock: 8,  lowStock: 0 },
-    ];
-    products.forEach(p => this.saveProduct(p));
+    [{ name: 'Master Chef Jasmine', type: 'kilo', price: 62, unit: 'kg', stock: 8, lowStock: 0 }]
+      .forEach(p => this.saveProduct(p));
 
-    const customers = [
-      { name: 'Rosy',   phone: '', address: 'San luis Batangas'},
-      { name: 'She',     phone: '', address: 'Sukol Batangas' },
-      { name: 'Jovy',  phone: '', address: 'Sukol Batangas'},
+    [
+      { name: 'Rosy', phone: '', address: 'San luis Batangas' },
+      { name: 'She',  phone: '', address: 'Sukol Batangas'    },
+      { name: 'Jovy', phone: '', address: 'Sukol Batangas'    },
+    ].forEach(c => this.saveCustomer(c));
 
-    ];
-    customers.forEach(c => this.saveCustomer(c));
-
-    const suppliers = [
-      { name: 'Escalona Delen', contact: '', address: 'Balayong Bauan Batangas'},
-      { name: 'Ka Pedro', contact: '', address: 'lemery, batangas'},
-    ];
-    suppliers.forEach(s => this.saveSupplier(s));
-  }
+    [
+      { name: 'Escalona Delen', contact: '', address: 'Balayong Bauan Batangas' },
+      { name: 'Ka Pedro',       contact: '', address: 'lemery, batangas'         },
+    ].forEach(s => this.saveSupplier(s));
+  },
 };

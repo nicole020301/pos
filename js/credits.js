@@ -2,6 +2,10 @@
    credits.js  –  2-Week Credit Payment Ledger
    ============================================================ */
 
+import { DB }                                         from './data.js';
+import { fmt, esc, showToast, openModal, closeModal } from './utils.js';
+import { Dashboard }                                  from './dashboard.js';
+
 const Credits = (() => {
 
   /* ---- INIT ---- */
@@ -162,7 +166,7 @@ const Credits = (() => {
     closeModal('credit-payment-modal');
     renderTable();
 
-    if (typeof Dashboard !== 'undefined') Dashboard.refresh();
+    Dashboard.refresh();
 
     if (updated.status === 'paid') {
       showToast(`Credit fully paid! ${esc(credit.customerName)} – ${esc(credit.receiptNo)}`, 'success');
@@ -221,3 +225,5 @@ const Credits = (() => {
   /* ---- PUBLIC ---- */
   return { init, renderTable };
 })();
+
+export { Credits };
