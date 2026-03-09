@@ -19,6 +19,7 @@ function _syncToCloud(key) {
     [DB_KEYS.suppliers]:    state.suppliers,
     [DB_KEYS.restocks]:     state.restocks,
     [DB_KEYS.credits]:      state.credits,
+    [DB_KEYS.pautang]:      state.pautang,
     [DB_KEYS.settings]:     state.settings,
   };
   if (Object.prototype.hasOwnProperty.call(sliceMap, key)) {
@@ -31,7 +32,7 @@ export const DB = {
 
   /* ==== SETTINGS ==== */
   getSettings() {
-    const def = { storeName: 'Bigasan ni Joshua', address: '', phone: '', receiptNote: 'Thank you for your purchase!' };
+    const def = { storeName: 'Bigasan ni Joshua', address: '', phone: '', receiptNote: 'Thank you for your purchase!', workingCapital: 0 };
     return { ...def, ...store.getState().settings };
   },
   saveSettings(s) {
@@ -151,6 +152,19 @@ export const DB = {
     return saved;
   },
 
+  /* ==== PAUTANG ==== */
+  getPautang() { return store.getState().pautang; },
+  getPautangById(id) { return store.getState().pautang.find(p => p.id === id); },
+  savePautang(p) {
+    const saved = store.getState().addOrUpdatePautang(p);
+    _syncToCloud(DB_KEYS.pautang);
+    return saved;
+  },
+  deletePautang(id) {
+    store.getState().deletePautang(id);
+    _syncToCloud(DB_KEYS.pautang);
+  },
+
   /* ==== ANALYTICS ==== */
   getSalesSummaryForDays(n) {
     const result = [];
@@ -175,6 +189,77 @@ export const DB = {
     }
     return Object.values(map).sort((a, b) => b.revenue - a.revenue).slice(0, n);
   },
+  getMonthlyCapitalFlow({ year, month, startingCapital = 0 } = {}) {
+    const now = new Date();
+    const y = Number.isInteger(year) ? year : now.getFullYear();
+    const m = Number.isInteger(month) ? month : now.getMonth();
+    const start = new Date(y, m, 1, 0, 0, 0, 0);
+    const end = new Date(y, m + 1, 0, 23, 59, 59, 999);
+
+    const inRange = (value) => {
+      const d = new Date(value);
+      return !Number.isNaN(d.getTime()) && d >= start && d <= end;
+    };
+    const safeNum = (value) => Number.parseFloat(value) || 0;
+
+    const txns = this.getTransactionsByDateRange(start, end);
+    const cashAndGcashSales = txns
+      .filter(t => t.paymentMethod !== 'credit')
+      .reduce((sum, t) => sum + safeNum(t.total), 0);
+    const creditSalesBooked = txns
+      .filter(t => t.paymentMethod === 'credit')
+      .reduce((sum, t) => sum + safeNum(t.total), 0);
+
+    const creditPaymentsCollected = this.getCredits()
+      .flatMap(c => c.payments || [])
+      .filter(p => inRange(p.date))
+      .reduce((sum, p) => sum + safeNum(p.amount), 0);
+
+    const pautangCollected = this.getPautang()
+      .filter(p => safeNum(p.payment) > 0 && inRange(p.paymentDate))
+      .reduce((sum, p) => sum + safeNum(p.payment), 0);
+
+    const restockSpending = this.getRestocks()
+      .filter(r => inRange(r.date || r.createdAt))
+      .reduce((sum, r) => sum + safeNum(r.cost), 0);
+
+    const creditReceivableNextMonth = this.getCredits()
+      .filter(c => safeNum(c.balance) > 0 && new Date(c.dueDate) > end)
+      .reduce((sum, c) => sum + safeNum(c.balance), 0);
+
+    const pautangReceivableNextMonth = this.getPautang()
+      .map(p => {
+        const outstanding = Math.max(0, safeNum(p.price) - safeNum(p.payment));
+        return { ...p, outstanding };
+      })
+      .filter(p => p.outstanding > 0 && new Date(p.paymentDate) > end)
+      .reduce((sum, p) => sum + p.outstanding, 0);
+
+    const receivableNextMonth = creditReceivableNextMonth + pautangReceivableNextMonth;
+    const collectedThisMonth = cashAndGcashSales + creditPaymentsCollected + pautangCollected;
+    const netCashThisMonth = collectedThisMonth - restockSpending;
+    const capitalBase = safeNum(startingCapital);
+    const monthEndCashPosition = capitalBase + netCashThisMonth;
+    const capitalTurnover = capitalBase > 0 ? (collectedThisMonth / capitalBase) : 0;
+
+    return {
+      monthStart: start.toISOString(),
+      monthEnd: end.toISOString(),
+      startingCapital: capitalBase,
+      cashAndGcashSales,
+      creditSalesBooked,
+      creditPaymentsCollected,
+      pautangCollected,
+      collectedThisMonth,
+      restockSpending,
+      netCashThisMonth,
+      monthEndCashPosition,
+      capitalTurnover,
+      creditReceivableNextMonth,
+      pautangReceivableNextMonth,
+      receivableNextMonth,
+    };
+  },
 
   /* ==== BACKUP / RESTORE ==== */
   exportBackup() {
@@ -188,6 +273,7 @@ export const DB = {
       suppliers:   s.suppliers,
       restocks:    s.restocks,
       credits:     s.credits,
+      pautang:     s.pautang,
       settings:    s.settings,
     };
     const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
@@ -210,6 +296,7 @@ export const DB = {
       if (Array.isArray(data.suppliers))    { s.setSuppliers(data.suppliers);        fsPush(DB_KEYS.suppliers, data.suppliers); }
       if (Array.isArray(data.restocks))     { s.setRestocks(data.restocks);          fsPush(DB_KEYS.restocks, data.restocks); }
       if (Array.isArray(data.credits))      { s.setCredits(data.credits);            fsPush(DB_KEYS.credits, data.credits); }
+      if (Array.isArray(data.pautang))      { s.setPautang(data.pautang);            fsPush(DB_KEYS.pautang, data.pautang); }
       if (data.settings)                    { s.setSettings(data.settings);          fsPush(DB_KEYS.settings, data.settings); }
       if (fsIsReady()) fsPushAll();
       return true;
@@ -223,7 +310,7 @@ export const DB = {
   seed() {
     const s = store.getState();
     if (!s.settings || !s.settings.storeName) {
-      s.setSettings({ storeName: 'Bigasan ni Joshua', address: '', phone: '', receiptNote: 'Thank you for your purchase!' });
+      s.setSettings({ storeName: 'Bigasan ni Joshua', address: '', phone: '', receiptNote: 'Thank you for your purchase!', workingCapital: 0 });
     }
     if (s.products.length > 0) return; /* already seeded */
 

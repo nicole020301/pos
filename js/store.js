@@ -28,6 +28,7 @@ export const DB_KEYS = {
   suppliers:    'bigasan_suppliers',
   restocks:     'bigasan_restocks',
   credits:      'bigasan_credits',
+  pautang:      'bigasan_pautang',
   settings:     'bigasan_settings',
   owner:        'bigasan_owner',
   session:      'bigasan_session',
@@ -39,9 +40,21 @@ const DEFAULT_SETTINGS = {
   address:     '',
   phone:       '',
   receiptNote: 'Thank you for your purchase!',
+  workingCapital: 0,
 };
 
 const DEFAULT_OWNER = { username: 'owner', password: '1234' };
+
+function _loadLocal(key, fallback) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return fallback;
+    const parsed = JSON.parse(raw);
+    return parsed ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
 
 /* Load owner from localStorage (auth-only, never sent to Firestore) */
 const _persistedOwner = (() => {
@@ -57,13 +70,14 @@ export const store = createStore(
   subscribeWithSelector((set, get) => ({
 
     /* ─── State ─────────────────────────────────────────── */
-    products:     [],
-    transactions: [],
-    customers:    [],
-    suppliers:    [],
-    restocks:     [],
-    credits:      [],
-    settings:     { ...DEFAULT_SETTINGS },
+    products:     _loadLocal(DB_KEYS.products, []),
+    transactions: _loadLocal(DB_KEYS.transactions, []),
+    customers:    _loadLocal(DB_KEYS.customers, []),
+    suppliers:    _loadLocal(DB_KEYS.suppliers, []),
+    restocks:     _loadLocal(DB_KEYS.restocks, []),
+    credits:      _loadLocal(DB_KEYS.credits, []),
+    pautang:      _loadLocal(DB_KEYS.pautang, []),
+    settings:     { ...DEFAULT_SETTINGS, ..._loadLocal(DB_KEYS.settings, {}) },
     owner:        { ..._persistedOwner },
     syncStatus:   'offline',  /* 'online' | 'offline' | 'syncing' */
 
@@ -74,6 +88,7 @@ export const store = createStore(
     setSuppliers:    (suppliers)    => set({ suppliers }),
     setRestocks:     (restocks)     => set({ restocks }),
     setCredits:      (credits)      => set({ credits }),
+    setPautang:      (pautang)      => set({ pautang }),
     setSettings:     (settings)     => set({ settings: { ...DEFAULT_SETTINGS, ...settings } }),
     setOwner:        (owner)        => set({ owner }),
     setSyncStatus:   (status)       => set({ syncStatus: status }),
@@ -171,6 +186,28 @@ export const store = createStore(
       });
       if (changed) set({ credits: list });
       return changed;
+    },
+
+    /* ─── Pautang ───────────────────────────────────────── */
+    addOrUpdatePautang(p) {
+      const list = [...get().pautang];
+      if (p.id) {
+        const idx = list.findIndex(x => x.id === p.id);
+        if (idx !== -1) {
+          list[idx] = { ...list[idx], ...p, updatedAt: new Date().toISOString() };
+        } else {
+          list.push({ ...p, updatedAt: new Date().toISOString() });
+        }
+      } else {
+        p.id = _getId();
+        p.createdAt = new Date().toISOString();
+        list.push(p);
+      }
+      set({ pautang: list });
+      return p;
+    },
+    deletePautang(id) {
+      set({ pautang: get().pautang.filter(p => p.id !== id) });
     },
 
     /* ─── Suppliers ─────────────────────────────────────── */

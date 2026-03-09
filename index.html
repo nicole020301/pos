@@ -3,7 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#f97316" />
   <title>Bigasan POS System</title>
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="/assets/logo.jpg" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="css/styles.css" />
@@ -160,6 +163,7 @@
       <div class="sidebar-nav-section">People</div>
       <a class="nav-item" data-view="customers"><i class="fa-solid fa-users"></i><span>Customers</span></a>
       <a class="nav-item" data-view="credits"><i class="fa-solid fa-hand-holding-dollar"></i><span>Credits</span></a>
+      <a class="nav-item" data-view="pautang"><i class="fa-solid fa-file-invoice-dollar"></i><span>Pautang</span></a>
       <a class="nav-item" data-view="suppliers"><i class="fa-solid fa-truck"></i><span>Suppliers</span></a>
     </nav>
     <div class="sidebar-clock" id="sidebar-clock"></div>    <div id="cloud-sync-indicator" style="font-size:.75rem;padding:6px 16px 4px;display:flex;align-items:center;gap:6px;color:var(--sidebar-text);opacity:.7"></div>    <button class="sidebar-settings-btn" id="open-settings-btn" title="Settings & Backup">
@@ -377,6 +381,50 @@
         <div class="stat-card orange"><div class="stat-icon"><i class="fa-solid fa-calculator"></i></div><div class="stat-info"><div class="stat-value" id="rep-avg">₱0.00</div><div class="stat-label">Avg. per Transaction</div></div></div>
         <div class="stat-card purple"><div class="stat-icon"><i class="fa-solid fa-tag"></i></div><div class="stat-info"><div class="stat-value" id="rep-disc">₱0.00</div><div class="stat-label">Total Discounts</div></div></div>
       </div>
+      <div class="panel" style="margin-bottom:20px">
+        <div class="panel-header"><h2>Month-End Capital Flow</h2></div>
+        <div class="modal-body" style="padding:16px 20px 20px">
+          <div class="filter-bar" style="margin-bottom:12px">
+            <div class="form-group" style="margin-bottom:0;min-width:180px">
+              <label>Starting Capital (PHP)</label>
+              <input type="number" id="rep-working-capital" min="0" step="0.01" placeholder="30000" />
+            </div>
+            <div class="form-group" style="margin-bottom:0;min-width:180px">
+              <label>Month</label>
+              <input type="month" id="rep-working-month" />
+            </div>
+            <button class="btn btn-secondary" id="rep-working-run" style="align-self:flex-end"><i class="fa-solid fa-arrows-rotate"></i> Compute</button>
+          </div>
+
+          <div class="capital-flow-grid">
+            <div class="capital-kpi">
+              <div class="capital-kpi-label">Collected This Month</div>
+              <div class="capital-kpi-value" id="rep-collected-month">₱0.00</div>
+            </div>
+            <div class="capital-kpi">
+              <div class="capital-kpi-label">Restock Spending</div>
+              <div class="capital-kpi-value" id="rep-restock-month">₱0.00</div>
+            </div>
+            <div class="capital-kpi">
+              <div class="capital-kpi-label">Net Cash This Month</div>
+              <div class="capital-kpi-value" id="rep-net-cash-month">₱0.00</div>
+            </div>
+            <div class="capital-kpi">
+              <div class="capital-kpi-label">Capital Turnover</div>
+              <div class="capital-kpi-value" id="rep-capital-turnover">0.00x</div>
+            </div>
+            <div class="capital-kpi">
+              <div class="capital-kpi-label">Receivables Next Month</div>
+              <div class="capital-kpi-value" id="rep-receivable-next">₱0.00</div>
+            </div>
+            <div class="capital-kpi">
+              <div class="capital-kpi-label">Month-End Cash Position</div>
+              <div class="capital-kpi-value" id="rep-end-cash">₱0.00</div>
+            </div>
+          </div>
+          <p id="rep-capital-note" style="margin-top:10px;color:var(--text-muted);font-size:.82rem"></p>
+        </div>
+      </div>
       <div class="two-col">
         <div class="panel"><div class="panel-header"><h2>Sales Trend</h2></div><div class="chart-wrap"><canvas id="repTrendChart"></canvas></div></div>
         <div class="panel"><div class="panel-header"><h2>Sales by Product</h2></div><div class="chart-wrap"><canvas id="repProdChart"></canvas></div></div>
@@ -460,6 +508,86 @@
           </thead>
           <tbody id="credit-table"></tbody>
         </table>
+      </div>
+    </section>
+
+    <!-- ===== PAUTANG ===== -->
+    <section class="view" id="view-pautang">
+      <div class="view-header">
+        <h1><i class="fa-solid fa-file-invoice-dollar"></i> Pautang Records</h1>
+      </div>
+
+      <div class="two-col">
+        <div class="panel">
+          <div class="panel-header"><h2>Add / Update Pautang</h2></div>
+          <div class="modal-body" style="padding:18px 20px">
+            <input type="hidden" id="pautang-id" />
+            <div class="form-group">
+              <label>Customer Name *</label>
+              <input type="text" id="pautang-name" placeholder="e.g. Juan Dela Cruz" />
+            </div>
+            <div class="form-group">
+              <label>Orders *</label>
+              <select id="pautang-orders">
+                <option value="">Select order from available stock...</option>
+              </select>
+              <small style="color:var(--text-muted);font-size:.78rem">Only products with stock greater than 0 are shown.</small>
+            </div>
+            <div class="form-group" style="max-width:220px">
+              <label>Price (₱) *</label>
+              <input type="number" id="pautang-price" min="0" step="0.01" placeholder="0.00" readonly />
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Delivery Date *</label>
+                <input type="date" id="pautang-delivery-date" />
+              </div>
+              <div class="form-group">
+                <label>Payment Date *</label>
+                <input type="date" id="pautang-payment-date" />
+              </div>
+            </div>
+            <div class="form-group" style="max-width:220px">
+              <label>Payment Amount (₱)</label>
+              <input type="number" id="pautang-payment" min="0" step="0.01" placeholder="0.00" />
+              <small style="color:var(--text-muted);font-size:.78rem">Optional. You can add this later when customer pays.</small>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button class="btn btn-primary" id="pautang-save-btn"><i class="fa-solid fa-floppy-disk"></i> Save Record</button>
+              <button class="btn btn-secondary" id="pautang-clear-btn"><i class="fa-solid fa-eraser"></i> Clear</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header"><h2>Search</h2></div>
+          <div class="modal-body" style="padding:18px 20px">
+            <div class="form-group" style="margin-bottom:0">
+              <label>Find Record</label>
+              <input type="text" id="pautang-search" placeholder="Search by name or order..." />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel mt">
+        <div class="panel-header"><h2>Pautang List</h2></div>
+        <div class="tbl-wrap">
+          <table class="tbl">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Orders</th>
+                <th>Price</th>
+                <th>Delivery Date</th>
+                <th>Payment Date</th>
+                <th>Payment</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="pautang-table"></tbody>
+          </table>
+        </div>
       </div>
     </section>
 

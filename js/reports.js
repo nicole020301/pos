@@ -13,6 +13,7 @@ const Reports = (() => {
 
   function init() {
     setDefaultDates();
+    setCapitalDefaults();
     bindEvents();
     loadReport();
   }
@@ -28,6 +29,21 @@ const Reports = (() => {
     document.getElementById('report-period').addEventListener('change', onPeriodChange);
     document.getElementById('apply-range').addEventListener('click', loadReport);
     document.getElementById('export-csv').addEventListener('click', exportCSV);
+    document.getElementById('rep-working-run').addEventListener('click', loadCapitalFlow);
+    document.getElementById('rep-working-month').addEventListener('change', loadCapitalFlow);
+    document.getElementById('rep-working-capital').addEventListener('change', loadCapitalFlow);
+  }
+
+  function setCapitalDefaults() {
+    const now = new Date();
+    const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const monthEl = document.getElementById('rep-working-month');
+    if (monthEl) monthEl.value = month;
+
+    const s = DB.getSettings();
+    const cap = Number.parseFloat(s.workingCapital) || 0;
+    const capEl = document.getElementById('rep-working-capital');
+    if (capEl) capEl.value = cap > 0 ? cap.toFixed(2) : '';
   }
 
   function onPeriodChange() {
@@ -66,6 +82,42 @@ const Reports = (() => {
     renderStats();
     renderCharts(from, to);
     renderTable();
+    loadCapitalFlow();
+  }
+
+  function loadCapitalFlow() {
+    const capEl = document.getElementById('rep-working-capital');
+    const monthEl = document.getElementById('rep-working-month');
+    if (!capEl || !monthEl) return;
+
+    const monthVal = monthEl.value || new Date().toISOString().slice(0, 7);
+    const [yy, mm] = monthVal.split('-').map(Number);
+    const capital = Number.parseFloat(capEl.value) || 0;
+
+    const metrics = DB.getMonthlyCapitalFlow({
+      year: Number.isFinite(yy) ? yy : new Date().getFullYear(),
+      month: Number.isFinite(mm) ? mm - 1 : new Date().getMonth(),
+      startingCapital: capital,
+    });
+
+    const s = DB.getSettings();
+    if ((Number.parseFloat(s.workingCapital) || 0) !== capital) {
+      DB.saveSettings({ ...s, workingCapital: capital });
+    }
+
+    document.getElementById('rep-collected-month').textContent = fmt(metrics.collectedThisMonth);
+    document.getElementById('rep-restock-month').textContent = fmt(metrics.restockSpending);
+    document.getElementById('rep-net-cash-month').textContent = fmt(metrics.netCashThisMonth);
+    document.getElementById('rep-capital-turnover').textContent = `${metrics.capitalTurnover.toFixed(2)}x`;
+    document.getElementById('rep-receivable-next').textContent = fmt(metrics.receivableNextMonth);
+    document.getElementById('rep-end-cash').textContent = fmt(metrics.monthEndCashPosition);
+
+    document.getElementById('rep-net-cash-month').style.color = metrics.netCashThisMonth < 0 ? 'var(--danger)' : 'var(--success)';
+    document.getElementById('rep-receivable-next').style.color = metrics.receivableNextMonth > 0 ? 'var(--warning)' : 'inherit';
+
+    document.getElementById('rep-capital-note').textContent =
+      `Included this month: cash/GCash sales + credit collections + paid pautang. ` +
+      `Excluded from this month: receivables due after month end (${fmt(metrics.receivableNextMonth)}).`;
   }
 
   function renderStats() {

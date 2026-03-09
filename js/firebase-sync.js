@@ -25,6 +25,7 @@ const SETTERS = {
   [DB_KEYS.suppliers]:    d => store.getState().setSuppliers(d),
   [DB_KEYS.restocks]:     d => store.getState().setRestocks(d),
   [DB_KEYS.credits]:      d => store.getState().setCredits(d),
+  [DB_KEYS.pautang]:      d => store.getState().setPautang(d),
   [DB_KEYS.settings]:     d => store.getState().setSettings(d),
 };
 
@@ -35,6 +36,7 @@ const GETTERS = {
   [DB_KEYS.suppliers]:    () => store.getState().suppliers,
   [DB_KEYS.restocks]:     () => store.getState().restocks,
   [DB_KEYS.credits]:      () => store.getState().credits,
+  [DB_KEYS.pautang]:      () => store.getState().pautang,
   [DB_KEYS.settings]:     () => store.getState().settings,
 };
 

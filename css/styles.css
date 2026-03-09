@@ -408,6 +408,32 @@ button { cursor: pointer; border: none; background: none; }
 }
 .filter-bar select { min-width: 140px; }
 
+/* ========== CAPITAL FLOW (REPORTS) ========== */
+.capital-flow-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+.capital-kpi {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  background: linear-gradient(180deg, #ffffff, #f8fafc);
+}
+.capital-kpi-label {
+  font-size: .72rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  font-weight: 700;
+}
+.capital-kpi-value {
+  margin-top: 6px;
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: var(--text);
+}
+
 /* ========== TOP PRODUCTS ========== */
 .top-products-item {
   display: flex;

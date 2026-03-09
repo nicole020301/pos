@@ -5,9 +5,9 @@
    ============================================================ */
 
 import { firebaseConfig }                            from './firebase-config.js';
-import { initFirebase, pullAll, listenAll, pushAll }  from './firebase-sync.js';
+import { initFirebase, pullAll, listenAll, pushAll, isReady as isFirebaseReady }  from './firebase-sync.js';
 import { signInWithGoogle, signOutGoogle, onAuthChange } from './auth.js';
-import { store }                                     from './store.js';
+import { store, DB_KEYS }                            from './store.js';
 import { DB }                                        from './data.js';
 import { fmt, esc, showToast, openModal, closeModal } from './utils.js';
 import { POS }                                       from './pos.js';
@@ -16,6 +16,7 @@ import { Reports }                                   from './reports.js';
 import { Customers }                                 from './customers.js';
 import { Suppliers }                                 from './suppliers.js';
 import { Credits }                                   from './credits.js';
+import { Pautang }                                   from './pautang.js';
 import { Dashboard }                                 from './dashboard.js';
 
 /* ---- Expose helpers to window so inline HTML onclick attrs still work ---- */
@@ -24,6 +25,15 @@ window.esc        = esc;
 window.showToast  = showToast;
 window.openModal  = openModal;
 window.closeModal = closeModal;
+
+function initOfflineSupport() {
+  if (!('serviceWorker' in navigator)) return;
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/service-worker.js').catch(err => {
+      console.warn('[Offline] Service worker registration failed:', err);
+    });
+  });
+}
 
 /* ============================================================
    NAVIGATION
@@ -35,6 +45,7 @@ const PAGE_META = {
   reports:   { label: 'Sales Reports',          icon: 'fa-chart-line'          },
   customers: { label: 'Customers',              icon: 'fa-users'               },
   credits:   { label: 'Credit Ledger',          icon: 'fa-hand-holding-dollar' },
+  pautang:   { label: 'Pautang Records',        icon: 'fa-file-invoice-dollar' },
   suppliers: { label: 'Suppliers & Restocking', icon: 'fa-truck'               },
 };
 
@@ -54,6 +65,7 @@ function navigateTo(view) {
     reports:   () => Reports.loadReport(),
     customers: () => Customers.renderTable(),
     credits:   () => Credits.renderTable(),
+    pautang:   () => Pautang.renderTable(),
     suppliers: () => { Suppliers.renderSuppliers(); Suppliers.renderRestocks(); },
   };
   if (refreshMap[view]) refreshMap[view]();
@@ -172,11 +184,13 @@ function initSettings() {
   });
 
   document.getElementById('settings-save-btn').addEventListener('click', () => {
+    const current = DB.getSettings();
     DB.saveSettings({
       storeName:   document.getElementById('set-store-name').value.trim()   || 'Bigasan Store',
       address:     document.getElementById('set-address').value.trim(),
       phone:       document.getElementById('set-phone').value.trim(),
       receiptNote: document.getElementById('set-receipt-note').value.trim() || 'Thank you for your purchase!',
+      workingCapital: Number.parseFloat(current.workingCapital) || 0,
     });
     applySettings();
     closeModal('settings-modal');
@@ -221,7 +235,8 @@ function initSettings() {
     const s = store.getState();
     s.setProducts([]);    s.setTransactions([]);  s.setCustomers([]);
     s.setSuppliers([]);   s.setRestocks([]);      s.setCredits([]);
-    s.setSettings({ storeName: 'Bigasan ni Joshua', address: '', phone: '', receiptNote: 'Thank you for your purchase!' });
+    s.setPautang([]);
+    s.setSettings({ storeName: 'Bigasan ni Joshua', address: '', phone: '', receiptNote: 'Thank you for your purchase!', workingCapital: 0 });
     /* Push empty slices to Firestore */
     pushAll();
     showToast('All data cleared. Refreshing...', 'warning');
@@ -309,7 +324,24 @@ function initAuth() {
   const googleErr  = document.getElementById('google-login-error');
   const googleErrMsg = document.getElementById('google-login-error-msg');
 
+  function updateGoogleButtonState() {
+    const offline = !navigator.onLine;
+    googleBtn.disabled = offline;
+    googleBtn.title = offline ? 'Google sign-in requires internet connection' : '';
+  }
+  updateGoogleButtonState();
+  window.addEventListener('online', updateGoogleButtonState);
+  window.addEventListener('offline', updateGoogleButtonState);
+
   googleBtn.addEventListener('click', async () => {
+    if (!navigator.onLine) {
+      showToast('Google sign-in is unavailable offline. Use username and password.', 'warning');
+      return;
+    }
+    if (!isFirebaseReady()) {
+      showToast('Cloud login is still initializing. Please try again in a moment.', 'warning');
+      return;
+    }
     googleBtn.disabled = true;
     googleBtn.querySelector('span').textContent = 'Signing in...';
     if (googleErr) googleErr.style.display = 'none';
@@ -360,6 +392,7 @@ function initStoreSubscriptions() {
     state => state.products,
     () => {
       if (document.getElementById('view-inventory')?.classList.contains('active')) Inventory.renderTable();
+      if (document.getElementById('view-pautang')?.classList.contains('active')) Pautang.renderTable();
       POS.renderProducts();
       Dashboard.refresh();
     }
@@ -405,9 +438,35 @@ function initStoreSubscriptions() {
   );
 
   store.subscribe(
+    state => state.pautang,
+    () => {
+      if (document.getElementById('view-pautang')?.classList.contains('active')) Pautang.renderTable();
+    }
+  );
+
+  store.subscribe(
     state => state.settings,
     () => applySettings()
   );
+
+  const persistSlice = (key, selector) => {
+    store.subscribe(selector, value => {
+      try {
+        localStorage.setItem(key, JSON.stringify(value));
+      } catch (e) {
+        console.warn(`[Persist] Failed to save ${key}:`, e);
+      }
+    });
+  };
+
+  persistSlice(DB_KEYS.products, state => state.products);
+  persistSlice(DB_KEYS.transactions, state => state.transactions);
+  persistSlice(DB_KEYS.customers, state => state.customers);
+  persistSlice(DB_KEYS.suppliers, state => state.suppliers);
+  persistSlice(DB_KEYS.restocks, state => state.restocks);
+  persistSlice(DB_KEYS.credits, state => state.credits);
+  persistSlice(DB_KEYS.pautang, state => state.pautang);
+  persistSlice(DB_KEYS.settings, state => state.settings);
 }
 
 /* ============================================================
@@ -415,32 +474,27 @@ function initStoreSubscriptions() {
    ============================================================ */
 document.addEventListener('DOMContentLoaded', async () => {
 
-  /* 1. Connect to Firebase and pull latest cloud data */
-  try {
-    await initFirebase(firebaseConfig);
-    await pullAll();
-  } catch (e) {
-    console.warn('[App] Cloud sync unavailable, running offline:', e);
-  }
+  initOfflineSupport();
 
-  /* 2. Seed sample data on very first run (skipped if store already has data) */
+  /* 1. Seed sample data on very first run (skipped if store already has data) */
   DB.seed();
 
-  /* 3. Init all modules */
+  /* 2. Init all modules */
   Dashboard.init();
   POS.init();
   Inventory.init();
   Reports.init();
   Customers.init();
   Credits.init();
+  Pautang.init();
   Suppliers.init();
 
-  /* 4. Navigation */
+  /* 3. Navigation */
   document.querySelectorAll('.nav-item').forEach(item => {
     item.addEventListener('click', () => navigateTo(item.dataset.view));
   });
 
-  /* 5. UI helpers */
+  /* 4. UI helpers */
   initClock();
   initModals();
   initKeyboardShortcuts();
@@ -449,16 +503,39 @@ document.addEventListener('DOMContentLoaded', async () => {
   applySettings();
   initInlineEdit();
 
-  /* 6. Zustand subscriptions (reactive re-renders for local + remote changes) */
+  /* 5. Zustand subscriptions (reactive re-renders for local + remote changes) */
   initStoreSubscriptions();
 
-  /* 7. Start real-time Firestore listeners */
-  listenAll();
-
-  /* 8. Navigate to dashboard */
+  /* 6. Navigate to dashboard */
   navigateTo('dashboard');
 
-  if (store.getState().syncStatus === 'online') {
-    showToast('Cloud sync active', 'success');
-  }
+  /* 7. Connect cloud sync in background so offline login is instant */
+  (async () => {
+    try {
+      await initFirebase(firebaseConfig);
+
+      let pulled = false;
+      await Promise.race([
+        pullAll().then(() => { pulled = true; }),
+        new Promise(resolve => setTimeout(resolve, 3500)),
+      ]);
+
+      if (!pulled) {
+        console.warn('[App] pullAll timed out; continuing with local data until cloud responds.');
+      }
+
+      Dashboard.refresh();
+      Reports.loadReport();
+      Credits.renderTable();
+      Customers.renderTable();
+      Pautang.renderTable();
+      Suppliers.renderSuppliers();
+      Suppliers.renderRestocks();
+
+      listenAll();
+      showToast('Cloud sync active', 'success');
+    } catch (e) {
+      console.warn('[App] Cloud sync unavailable, running offline:', e);
+    }
+  })();
 });
